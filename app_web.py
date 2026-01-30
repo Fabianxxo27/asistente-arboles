@@ -178,9 +178,9 @@ def agregar_fila_excel(worksheet_excel, datos):
             worksheet_excel.cell(fila_objetivo, 67).value = datos['intensidad']
         
         # Concepto Técnico
-        for col_excel, marcado in datos.get('checks_concepto', {}).items():
-            if marcado:
-                worksheet_excel.cell(fila_objetivo, col_excel).value = '1'
+        for col_excel, valor in datos.get('selects_concepto', {}).items():
+            if valor:
+                worksheet_excel.cell(fila_objetivo, col_excel).value = valor
         
         # Residuos
         if datos.get('residuos'):
@@ -271,9 +271,9 @@ def agregar_fila_sheets(worksheet, datos):
             fila_datos[66] = datos['intensidad']  # Columna 67
         
         # Concepto Técnico (columnas 68-76)
-        for col_excel, marcado in datos.get('checks_concepto', {}).items():
-            if marcado:
-                fila_datos[col_excel - 1] = '1'
+        for col_excel, valor in datos.get('selects_concepto', {}).items():
+            if valor:
+                fila_datos[col_excel - 1] = valor
         
         # Residuos
         if datos.get('residuos'):
@@ -581,8 +581,8 @@ with st.form(key=f"formulario_arbol_{st.session_state.form_key}"):
     
     # Concepto Técnico (columnas 68-76: 9 opciones)
     st.markdown('<div class="section-header">📋 Concepto Técnico</div>', unsafe_allow_html=True)
-    cols_concepto = st.columns(5)
-    checks_concepto = {}
+    cols_concepto = st.columns(3)
+    selects_concepto = {}
     opciones_concepto = [
         ("Inclinación severa hacia estructuras", 68),
         ("Problemas de seguridad en la zona", 69),
@@ -594,9 +594,10 @@ with st.form(key=f"formulario_arbol_{st.session_state.form_key}"):
         ("Liberación de infraestructura urbana y movilidad", 75),
         ("Despeje sistema circulación urbana", 76)
     ]
+    opciones_concepto_valores = ["", "Emergencias", "Priorizadas", "Ciclo plan de podas"]
     for idx, (nombre, col) in enumerate(opciones_concepto):
-        with cols_concepto[idx % 5]:
-            checks_concepto[col] = st.checkbox(nombre, key=f"concepto_{col}")
+        with cols_concepto[idx % 3]:
+            selects_concepto[col] = st.selectbox(nombre, opciones_concepto_valores, key=f"concepto_{col}")
     
     # Botón enviar
     st.markdown("<br>", unsafe_allow_html=True)
@@ -626,7 +627,7 @@ if submitted:
         'tipo_poda': tipo_poda,
         'intensidad': intensidad,
         'residuos': residuos,
-        'checks_concepto': {col: True for col, val in checks_concepto.items() if val}
+        'selects_concepto': {col: val for col, val in selects_concepto.items() if val}
     }
     
     # Guardar según el modo
