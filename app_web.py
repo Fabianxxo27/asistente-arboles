@@ -637,8 +637,8 @@ with st.form(key="formulario_arbol"):
                     label=f"📥 Descargar Excel Completo",
                     data=excel_data,
                     file_name=f"{st.session_state.uploaded_filename.replace('.xlsx', '').replace('.xlsm', '')}_actualizado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{extension}",
-            with st.expander("📋 Opción 2: Descargar solo registros nuevos en CSV"):
-                            use_container_width=True,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
                     type="primary"
                 )
                 st.caption("💾 Archivo completo con todos los datos originales + nuevos registros")
