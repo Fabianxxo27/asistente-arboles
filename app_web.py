@@ -638,15 +638,15 @@ with st.form(key="formulario_arbol"):
                 st.caption("💾 Archivo completo con todos los datos originales + nuevos registros")
         except Exception as e:
             st.warning(f"⚠️ No se puede guardar el archivo original (contiene elementos complejos)")
+    
+    # Si NO se pudo guardar el archivo original, ofrecer alternativas
+    if not excel_guardado:
+        st.markdown("### 📄 Opciones de Descarga Alternativas")
+        st.info("💡 Tu archivo original tiene elementos complejos. Elige una opción:")
         
-        # Si NO se pudo guardar el archivo original, ofrecer alternativas
-        if not excel_guardado:
-            st.markdown("### 📄 Opciones de Descarga Alternativas")
-            st.info("💡 Tu archivo original tiene elementos complejos. Elige una opción:")
-            
-            with st.expander("✅ RECOMENDADO: Descargar Excel nuevo con TODOS los datos", expanded=True):
-                try:
-                    from openpyxl import Workbook
+        with st.expander("✅ RECOMENDADO: Descargar Excel nuevo con TODOS los datos", expanded=True):
+            try:
+                from openpyxl import Workbook
                     
                     # Crear nuevo workbook
                     nuevo_wb = Workbook()
@@ -735,20 +735,20 @@ with st.form(key="formulario_arbol"):
                     st.caption(f"📋 {st.session_state.registros_agregados} registro(s) para copiar a tu Excel original")
                 else:
                     st.info("No hay registros nuevos para exportar")
-            
-            # Mostrar recomendación
-            st.markdown("---")
-            st.info("""
-            **💡 Recomendación final:**
-            - **Opción 1 (Excel nuevo)**: Archivo completo listo para usar ✅
-            - **Usa Google Sheets**: Nunca tendrás estos problemas 🌐
-            """)
-            
-            if st.checkbox("🔍 Ver detalles técnicos"):
-                st.code(f"Archivo: {st.session_state.uploaded_filename}\nError: Openpyxl no puede preservar imágenes/macros al guardar")
-    
-    except Exception as e:
-        st.error(f"Error fatal: {str(e)}")
+        
+        # Mostrar recomendación
+        st.markdown("---")
+        st.info("""
+        **💡 Recomendación final:**
+        - **Opción 1 (Excel nuevo)**: Archivo completo listo para usar ✅
+        - **Usa Google Sheets**: Nunca tendrás estos problemas 🌐
+        """)
+        
+        if st.checkbox("🔍 Ver detalles técnicos"):
+            st.code(f"Archivo: {st.session_state.uploaded_filename}\nError: Openpyxl no puede preservar imágenes/macros al guardar")
+
+except Exception as e:
+    st.error(f"Error fatal: {str(e)}")
 
 # Footer
 st.markdown("---")
