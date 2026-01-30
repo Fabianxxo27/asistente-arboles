@@ -647,52 +647,52 @@ with st.form(key="formulario_arbol"):
         with st.expander("✅ RECOMENDADO: Descargar Excel nuevo con TODOS los datos", expanded=True):
             try:
                 from openpyxl import Workbook
+                
+                # Crear nuevo workbook
+                nuevo_wb = Workbook()
+                nuevo_ws = nuevo_wb.active
+                nuevo_ws.title = "BASE DE DATOS"
+                
+                # Copiar solo los datos (valores) de la hoja original
+                worksheet_excel = None
+                for sheet_name in st.session_state.excel_workbook.sheetnames:
+                    if "BASE DE DATOS" in sheet_name.upper():
+                        worksheet_excel = st.session_state.excel_workbook[sheet_name]
+                        break
+                
+                if worksheet_excel:
+                    # Copiar datos celda por celda (solo valores, sin formato)
+                    max_row = worksheet_excel.max_row
+                    max_col = worksheet_excel.max_column
                     
-                    # Crear nuevo workbook
-                    nuevo_wb = Workbook()
-                    nuevo_ws = nuevo_wb.active
-                    nuevo_ws.title = "BASE DE DATOS"
+                    st.info(f"📊 Copiando {max_row} filas y {max_col} columnas...")
                     
-                    # Copiar solo los datos (valores) de la hoja original
-                    worksheet_excel = None
-                    for sheet_name in st.session_state.excel_workbook.sheetnames:
-                        if "BASE DE DATOS" in sheet_name.upper():
-                            worksheet_excel = st.session_state.excel_workbook[sheet_name]
-                            break
+                    for row_idx, row in enumerate(worksheet_excel.iter_rows(min_row=1, max_row=max_row, max_col=max_col), 1):
+                        for col_idx, cell in enumerate(row, 1):
+                            nuevo_ws.cell(row=row_idx, column=col_idx, value=cell.value)
                     
-                    if worksheet_excel:
-                        # Copiar datos celda por celda (solo valores, sin formato)
-                        max_row = worksheet_excel.max_row
-                        max_col = worksheet_excel.max_column
-                        
-                        st.info(f"📊 Copiando {max_row} filas y {max_col} columnas...")
-                        
-                        for row_idx, row in enumerate(worksheet_excel.iter_rows(min_row=1, max_row=max_row, max_col=max_col), 1):
-                            for col_idx, cell in enumerate(row, 1):
-                                nuevo_ws.cell(row=row_idx, column=col_idx, value=cell.value)
-                        
-                        # Guardar el nuevo workbook
-                        nuevo_output = BytesIO()
-                        nuevo_wb.save(nuevo_output)
-                        nuevo_output.seek(0)
-                        nuevo_data = nuevo_output.getvalue()
-                        
-                        st.success("✅ Excel nuevo creado exitosamente")
-                        st.download_button(
-                            label="📥 Descargar Excel Nuevo (TODOS los datos)",
-                            data=nuevo_data,
-                            file_name=f"arboles_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True,
-                            type="primary"
-                        )
-                        st.caption(f"✅ Contiene TODOS los datos ({max_row} filas) sin imágenes/formatos complejos")
-                    else:
-                        st.error("No se encontró la hoja BASE DE DATOS")
-                except Exception as e2:
-                    st.error(f"❌ Error al crear Excel nuevo: {str(e2)}")
-            
-            with st.expander("📋 Opción 2: Descargar solo nuevos registros en CSV"):
+                    # Guardar el nuevo workbook
+                    nuevo_output = BytesIO()
+                    nuevo_wb.save(nuevo_output)
+                    nuevo_output.seek(0)
+                    nuevo_data = nuevo_output.getvalue()
+                    
+                    st.success("✅ Excel nuevo creado exitosamente")
+                    st.download_button(
+                        label="📥 Descargar Excel Nuevo (TODOS los datos)",
+                        data=nuevo_data,
+                        file_name=f"arboles_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        type="primary"
+                    )
+                    st.caption(f"✅ Contiene TODOS los datos ({max_row} filas) sin imágenes/formatos complejos")
+                else:
+                    st.error("No se encontró la hoja BASE DE DATOS")
+            except Exception as e2:
+                st.error(f"❌ Error al crear Excel nuevo: {str(e2)}")
+        
+        with st.expander("📋 Opción 2: Descargar solo nuevos registros en CSV"):
                 if st.session_state.registros_agregados > 0 and 'datos_agregados' in st.session_state:
                     # Crear CSV con los datos agregados
                     import csv
