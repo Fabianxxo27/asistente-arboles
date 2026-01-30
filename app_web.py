@@ -625,11 +625,7 @@ with st.form(key="formulario_arbol"):
         **Solución:** Usa el modo Google Sheets para una experiencia sin problemas.
         """)
         if st.checkbox("🔍 Mostrar detalles técnicos"):
-            st.code(str(e)
-        **Solución:** Usa el modo Google Sheets para una experiencia sin problemas.
-        """)
-        if st.checkbox("Mostrar detalles del error"):
-            st.error(f"Error técnico: {str(e)}")
+            st.code(str(e))
 
 # Footer
 st.markdown("---")
