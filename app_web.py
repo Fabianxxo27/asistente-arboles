@@ -372,13 +372,20 @@ else:
             uploaded_file.seek(0)
             st.session_state.excel_original_bytes = uploaded_file.read()
             
-            # Cargar workbook manteniendo todo (imágenes, macros, etc)
+            # Cargar workbook con configuración más compatible
             uploaded_file.seek(0)
-            wb = load_workbook(uploaded_file, keep_vba=True, data_only=False, keep_links=False)
+            wb = load_workbook(
+                uploaded_file, 
+                keep_vba=True if uploaded_file.name.endswith('.xlsm') else False,
+                data_only=False, 
+                keep_links=False,
+                rich_text=True
+            )
             
             st.session_state.excel_workbook = wb
             st.session_state.uploaded_filename = uploaded_file.name
             st.session_state.registros_agregados = 0
+            st.session_state.datos_agregados = []  # Guardar datos para exportar CSV si falla Excel
         else:
             wb = st.session_state.excel_workbook
         
@@ -557,6 +564,14 @@ with st.form(key="formulario_arbol"):
                 if exito:
                     # Incrementar contador de registros agregados
                     st.session_state.registros_agregados += 1
+                    # Guardar datos para CSV alternativo
+                    if 'datos_agregados' not in st.session_state:
+                        st.session_state.datos_agregados = []
+                    st.session_state.datos_agregados.append({
+                        'fila': resultado,
+                        'id': codigo,
+                        'datos': datos
+                    })
         
         if exito:
             # Auto-incrementar código para el siguiente
@@ -608,15 +623,63 @@ with st.form(key="formulario_arbol"):
             label=f"📥 Descargar {st.session_state.uploaded_filename.replace('.xlsx', '').replace('.xlsm', '')}_actualizado.{extension}",
             data=excel_data,
             file_name=f"{st.session_state.uploaded_filename.replace('.xlsx', '').replace('.xlsm', '')}_actualizado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{extension}",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if extension == "xlsx" else "application/vnd.ms-excel.sheet.macroEnabled.12",
-            use_container_width=True,
-            type="primary"
-        )
+           warning("""
+        ⚠️ **El archivo tiene formatos complejos que impiden la descarga directa.**
+        """)
         
-        st.caption("💡 **Tip:** Puedes seguir agregando más registros antes de descargar. El archivo se mantiene en memoria con todos tus cambios.")
+        # Ofrecer descarga alternativa en CSV
+        st.markdown("### 📄 Descarga Alternativa")
+        st.info("✅ **Solución:** Descarga solo los nuevos registros en formato CSV y cópialos manualmente a tu Excel.")
         
-    except Exception as e:
-        st.error("""
+        if st.session_state.registros_agregados > 0 and 'datos_agregados' in st.session_state:
+            # Crear CSV con los datos agregados
+            import csv
+            csv_output = BytesIO()
+            csv_output.write('\ufeff'.encode('utf-8'))  # BOM para Excel
+            
+            # Escribir encabezados
+            headers = ['Fila', 'Entidad', 'NIT', 'ID/Código', 'Estado Fuste General', 'Estado Raíz General', 
+                      'Estado Sanitario General', 'Tipo Poda', 'Intensidad', 'Residuos']
+            
+            csv_text = ','.join(headers) + '\n'
+            
+            for item in st.session_state.datos_agregados:
+                d = item['datos']
+                row = [
+                    str(item['fila']),
+                    d.get('entidad', ''),
+                    d.get('nit', ''),
+                    d.get('codigo', ''),
+                    d.get('fuste_general', ''),
+                    d.get('raiz_general', ''),
+                    d.get('san_general', ''),
+                    d.get('tipo_poda', ''),
+                    d.get('intensidad', ''),
+                    d.get('residuos', '')
+                ]
+                csv_text += ','.join([f'"{r}"' for r in row]) + '\n'
+            
+            csv_output.write(csv_text.encode('utf-8'))
+            csv_data = csv_output.getvalue()
+            
+            st.download_button(
+                label="📥 Descargar Registros Nuevos (CSV)",
+                data=csv_data,
+                file_name=f"registros_nuevos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+            
+            st.caption(f"📋 {st.session_state.registros_agregados} registro(s) para copiar a tu Excel original")
+        
+        # Mostrar recomendación
+        st.markdown("---")
+        st.info("""
+        **💡 Recomendación:** Para evitar estos problemas en el futuro:
+        1. Usa **Google Sheets** (modo en la nube) - funciona sin problemas
+        2. O simplifica tu Excel eliminando imágenes/formatos complejos
+        """)
+        rror("""
         ⚠️ **Error al generar archivo de descarga.**
         
         Posibles causas:
