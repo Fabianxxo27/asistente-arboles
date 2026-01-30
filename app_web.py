@@ -363,7 +363,12 @@ else:
     # Cargar Excel en memoria
     try:
         if 'excel_workbook' not in st.session_state or st.session_state.get('uploaded_filename') != uploaded_file.name:
-            wb = load_workbook(uploaded_file, keep_vba=True)
+            # Cargar sin imágenes para evitar errores
+            wb = load_workbook(uploaded_file, keep_vba=True, data_only=False, keep_links=False)
+            # Eliminar imágenes si existen para evitar problemas al guardar
+            for sheet in wb.worksheets:
+                if hasattr(sheet, '_images'):
+                    sheet._images = []
             st.session_state.excel_workbook = wb
             st.session_state.uploaded_filename = uploaded_file.name
             st.session_state.excel_bytes = uploaded_file.getvalue()
@@ -551,18 +556,29 @@ if not usa_google_sheets and 'excel_workbook' in st.session_state:
     st.markdown("### 💾 Descargar Excel Actualizado")
     
     # Guardar workbook en bytes
-    output = BytesIO()
-    st.session_state.excel_workbook.save(output)
-    excel_data = output.getvalue()
-    
-    st.download_button(
-        label="📥 Descargar Excel con cambios",
-        data=excel_data,
-        file_name=f"arboles_actualizado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
-    )
-    st.info("💡 **Recuerda descargar el archivo** cuando termines de agregar todos los registros.")
+    try:
+        output = BytesIO()
+        st.session_state.excel_workbook.save(output)
+        excel_data = output.getvalue()
+        
+        st.download_button(
+            label="📥 Descargar Excel con cambios",
+            data=excel_data,
+            file_name=f"arboles_actualizado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+        st.info("💡 **Recuerda descargar el archivo** cuando termines de agregar todos los registros.")
+    except Exception as e:
+        st.warning("""
+        ⚠️ **No se pudo generar la descarga automática.**
+        
+        Esto suele pasar si el Excel tiene imágenes o formatos complejos.
+        
+        **Solución:** Usa el modo Google Sheets para una experiencia sin problemas.
+        """)
+        if st.checkbox("Mostrar detalles del error"):
+            st.error(f"Error técnico: {str(e)}")
 
 # Footer
 st.markdown("---")
