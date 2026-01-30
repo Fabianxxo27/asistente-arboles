@@ -394,6 +394,15 @@ else:
             st.info(f"Hojas disponibles: {', '.join(wb.sheetnames)}")
             st.stop()
         
+        # Obtener último código del Excel
+        ultimo_codigo_excel = 19222
+        for row in worksheet_excel.iter_rows(min_row=2, min_col=3, max_col=3):
+            valor = row[0].value
+            if valor and str(valor).isdigit():
+                ultimo_codigo_excel = max(ultimo_codigo_excel, int(valor))
+        
+        siguiente_codigo = ultimo_codigo_excel + 1
+        
         st.success(f"✅ **Archivo cargado:** {uploaded_file.name} (Hoja: {worksheet_excel.title})")
         
         # Mostrar estadísticas
@@ -404,15 +413,6 @@ else:
             st.metric("🆕 Registros agregados", st.session_state.registros_agregados)
         with col3:
             st.metric("🔢 Último código", ultimo_codigo_excel)
-        
-        # Obtener último código del Excel
-        ultimo_codigo_excel = 19222
-        for row in worksheet_excel.iter_rows(min_row=2, min_col=3, max_col=3):
-            valor = row[0].value
-            if valor and str(valor).isdigit():
-                ultimo_codigo_excel = max(ultimo_codigo_excel, int(valor))
-        
-        siguiente_codigo = ultimo_codigo_excel + 1
         
         if 'codigo_actual' not in st.session_state:
             st.session_state.codigo_actual = siguiente_codigo
