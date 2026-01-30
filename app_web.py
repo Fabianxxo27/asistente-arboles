@@ -343,9 +343,10 @@ if modo == "🌐 Google Sheets (en la nube)":
     # Inicializar session state para el código
     if 'codigo_actual' not in st.session_state:
         st.session_state.codigo_actual = siguiente_codigo
-    
-    usa_google_sheets = True
-    
+
+# Variable para controlar si se debe reiniciar el formulario
+if 'form_key' not in st.session_state:
+    st.session_state.form_key = 0
 # ============= MODO ARCHIVO EXCEL =============
 else:
     st.markdown("### 📤 Sube tu archivo Excel")
@@ -401,11 +402,15 @@ else:
         if 'codigo_actual' not in st.session_state:
             st.session_state.codigo_actual = siguiente_codigo
         
+        # Variable para controlar si se debe reiniciar el formulario
+        if 'form_key' not in st.session_state:
+            st.session_state.form_key = 0
+        
         usa_google_sheets = False
         worksheet = worksheet_excel  # Para usar en el formulario
         
     except Exception as e:
-        st.error(f"❌ Error al cargar Excel: {str(e)}")
+        st.error(f"formulario_arbol_{st.session_state.form_key}ar Excel: {str(e)}")
         st.stop()
 
 # Formulario
@@ -540,12 +545,14 @@ with st.form(key="formulario_arbol"):
                     st.session_state.excel_workbook = wb
         
         if exito:
-            st.success(f"✅ **Registro guardado exitosamente en la fila {resultado}** (ID: {codigo})")
-            st.balloons()
-            
             # Auto-incrementar código para el siguiente
             st.session_state.codigo_actual = int(codigo) + 1
-            st.info(f"💡 El siguiente código sugerido es: **{st.session_state.codigo_actual}**")
+            # Cambiar la key del formulario para forzar reset
+            st.session_state.form_key += 1
+            
+            st.success(f"✅ **Registro guardado exitosamente en la fila {resultado}** (ID: {codigo})")
+            st.info(f"💡 Siguiente código: **{st.session_state.codigo_actual}**")
+            st.balloons()
             st.rerun()
         else:
             st.error(f"❌ Error al guardar: {resultado}")
