@@ -546,8 +546,8 @@ with st.form(key="formulario_arbol"):
             'residuos': residuos,
             'checks_concepto': {col: True for col, val in checks_concepto.items() if val}
         }
-        Incrementar contador de registros agregados
-                    st.session_state.registros_agregados += 1
+        
+        # Guardar según el modo
         if usa_google_sheets:
             with st.spinner('Guardando en Google Sheets...'):
                 exito, resultado = agregar_fila_sheets(worksheet, datos)
@@ -555,8 +555,8 @@ with st.form(key="formulario_arbol"):
             with st.spinner('Guardando en Excel...'):
                 exito, resultado = agregar_fila_excel(worksheet, datos)
                 if exito:
-                    # Guardar el workbook actualizado en session_state
-                    st.session_state.excel_workbook = wb
+                    # Incrementar contador de registros agregados
+                    st.session_state.registros_agregados += 1
         
         if exito:
             # Auto-incrementar código para el siguiente
