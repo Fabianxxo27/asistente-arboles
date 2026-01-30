@@ -623,96 +623,13 @@ if not usa_google_sheets:
         # Determinar extensión según el archivo original
         extension = "xlsm" if st.session_state.uploaded_filename.endswith('.xlsm') else "xlsx"
         
-        # NUEVA ESTRATEGIA: Reconstruir desde archivo original
+        # ESTRATEGIA: Guardar el workbook actual que ya tiene todos los cambios
         try:
-            # Crear copia temporal del archivo original
-            temp_bytes = BytesIO(st.session_state.excel_original_bytes)
-            
-            # Cargar la copia con keep_vba
-            wb_temp = load_workbook(
-                temp_bytes,
-                keep_vba=True if extension == "xlsm" else False,
-                data_only=False,
-                keep_links=True
-            )
-            
-            # Aplicar SOLO los cambios de valores (sin tocar formato/imágenes)
-            worksheet_excel = None
-            for sheet_name in wb_temp.sheetnames:
-                if "BASE DE DATOS" in sheet_name.upper():
-                    worksheet_excel = wb_temp[sheet_name]
-                    break
-            
-            if worksheet_excel and 'datos_agregados' in st.session_state:
-                # Aplicar cada registro agregado
-                for item in st.session_state.datos_agregados:
-                    fila = item['fila']
-                    datos = item['datos']
-                    
-                    # Escribir solo valores en celdas específicas (como lo hace agregar_fila_excel)
-                    worksheet_excel[f'A{fila}'] = datos.get('entidad', '')
-                    worksheet_excel[f'B{fila}'] = datos.get('nit', '')
-                    worksheet_excel[f'C{fila}'] = datos.get('codigo', '')
-                    
-                    # Escribir checkboxes y demás datos
-                    col_idx = 4
-                    for col, active in datos.get('checks_fuste', {}).items():
-                        if active:
-                            worksheet_excel.cell(fila, col_idx, 'X')
-                        col_idx += 1
-                    
-                    worksheet_excel.cell(fila, col_idx, datos.get('fuste_general', ''))
-                    col_idx += 1
-                    worksheet_excel.cell(fila, col_idx, datos.get('raiz_especifico', ''))
-                    col_idx += 1
-                    worksheet_excel.cell(fila, col_idx, datos.get('raiz_general', ''))
-                    col_idx += 1
-                    
-                    for col, active in datos.get('checks_copa', {}).items():
-                        if active:
-                            worksheet_excel.cell(fila, col_idx, 'X')
-                        col_idx += 1
-                    
-                    worksheet_excel.cell(fila, col_idx, datos.get('san_copa_especifico', ''))
-                    col_idx += 1
-                    
-                    for col, active in datos.get('checks_fuste_san', {}).items():
-                        if active:
-                            worksheet_excel.cell(fila, col_idx, 'X')
-                        col_idx += 1
-                    
-                    worksheet_excel.cell(fila, col_idx, datos.get('san_general', ''))
-                    col_idx += 1
-                    worksheet_excel.cell(fila, col_idx, datos.get('san_copa_general', ''))
-                    col_idx += 1
-                    worksheet_excel.cell(fila, col_idx, datos.get('san_fuste_general', ''))
-                    col_idx += 1
-                    worksheet_excel.cell(fila, col_idx, datos.get('san_raiz_general', ''))
-                    col_idx += 1
-                    
-                    for col, active in datos.get('checks_poda', {}).items():
-                        if active:
-                            worksheet_excel.cell(fila, col_idx, 'X')
-                        col_idx += 1
-                    
-                    worksheet_excel.cell(fila, col_idx, datos.get('tipo_poda', ''))
-                    col_idx += 1
-                    worksheet_excel.cell(fila, col_idx, datos.get('intensidad', ''))
-                    col_idx += 1
-                    worksheet_excel.cell(fila, col_idx, datos.get('residuos', ''))
-                    col_idx += 1
-                    
-                    for col, active in datos.get('checks_concepto', {}).items():
-                        if active:
-                            worksheet_excel.cell(fila, col_idx, 'X')
-                        col_idx += 1
-            
-            # Guardar en BytesIO
+            # El workbook en session_state ya tiene todos los datos actualizados
             output = BytesIO()
-            wb_temp.save(output)
+            st.session_state.excel_workbook.save(output)
             output.seek(0)
             excel_data = output.getvalue()
-            wb_temp.close()
             
             # Verificar tamaño
             if len(excel_data) > 1000:
@@ -724,8 +641,8 @@ if not usa_google_sheets:
                     use_container_width=True,
                     type="primary"
                 )
-                st.caption("💾 Archivo completo con imágenes, macros y formatos preservados + nuevos registros")
-                st.success("✅ Archivo guardado exitosamente con todos los elementos originales")
+                st.caption("💾 Archivo actualizado con todos los nuevos registros")
+                st.success(f"✅ Listo para descargar con {st.session_state.registros_agregados} registro(s) nuevo(s)")
             else:
                 raise Exception("Archivo muy pequeño, posible error")
                 
