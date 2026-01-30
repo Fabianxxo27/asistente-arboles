@@ -368,15 +368,17 @@ else:
     # Cargar Excel en memoria
     try:
         if 'excel_workbook' not in st.session_state or st.session_state.get('uploaded_filename') != uploaded_file.name:
-            # Cargar sin imágenes para evitar errores
+            # Guardar el archivo original completo en bytes
+            uploaded_file.seek(0)
+            st.session_state.excel_original_bytes = uploaded_file.read()
+            
+            # Cargar workbook manteniendo todo (imágenes, macros, etc)
+            uploaded_file.seek(0)
             wb = load_workbook(uploaded_file, keep_vba=True, data_only=False, keep_links=False)
-            # Eliminar imágenes si existen para evitar problemas al guardar
-            for sheet in wb.worksheets:
-                if hasattr(sheet, '_images'):
-                    sheet._images = []
+            
             st.session_state.excel_workbook = wb
             st.session_state.uploaded_filename = uploaded_file.name
-            st.session_state.excel_bytes = uploaded_file.getvalue()
+            st.session_state.registros_agregados = 0
         else:
             wb = st.session_state.excel_workbook
         
@@ -393,6 +395,15 @@ else:
             st.stop()
         
         st.success(f"✅ **Archivo cargado:** {uploaded_file.name} (Hoja: {worksheet_excel.title})")
+        
+        # Mostrar estadísticas
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("📊 Total filas", worksheet_excel.max_row - 1)
+        with col2:
+            st.metric("🆕 Registros agregados", st.session_state.registros_agregados)
+        with col3:
+            st.metric("🔢 Último código", ultimo_codigo_excel)
         
         # Obtener último código del Excel
         ultimo_codigo_excel = 19222
@@ -535,8 +546,8 @@ with st.form(key="formulario_arbol"):
             'residuos': residuos,
             'checks_concepto': {col: True for col, val in checks_concepto.items() if val}
         }
-        
-        # Guardar según el modo
+        Incrementar contador de registros agregados
+                    st.session_state.registros_agregados += 1
         if usa_google_sheets:
             with st.spinner('Guardando en Google Sheets...'):
                 exito, resultado = agregar_fila_sheets(worksheet, datos)
@@ -553,38 +564,68 @@ with st.form(key="formulario_arbol"):
             # Cambiar la key del formulario para forzar reset
             st.session_state.form_key += 1
             
-            st.success(f"✅ **Registro guardado exitosamente en la fila {resultado}** (ID: {codigo})")
-            st.info(f"💡 Siguiente código: **{st.session_state.codigo_actual}**")
+            st.success(f"✅ **Registro guardado en fila {resultado}** (ID: {codigo})")
+            
+            # Mensaje especial para modo Excel
+            if not usa_google_sheets:
+                st.info(f"💾 **{st.session_state.registros_agregados} registro(s) en memoria.** Usa el botón 'Descargar Excel' cuando termines.")
+            
             st.balloons()
             st.rerun()
         else:
             st.error(f"❌ Error al guardar: {resultado}")
 
-# Si es modo Excel, mostrar botón de descarga
-if not usa_google_sheets and 'excel_workbook' in st.session_state:
-    st.markdown("---")
-    st.markdown("### 💾 Descargar Excel Actualizado")
+    # Mostrar resumen antes de descargar
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.markdown("### 💾 Descargar Excel Actualizado")
+        if st.session_state.registros_agregados > 0:
+            st.success(f"✅ **{st.session_state.registros_agregados} registro(s) listo(s) para descargar**")
+        else:
+            st.info("ℹ️ Aún no has agregado registros en esta sesión")
+    
+    with col2:
+        # Botón para reiniciar (subir otro archivo)
+        if st.button("🔄 Subir Otro Archivo", use_container_width=True):
+            for key in ['excel_workbook', 'uploaded_filename', 'excel_original_bytes', 'registros_agregados', 'codigo_actual', 'form_key']:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.rerun()
     
     # Guardar workbook en bytes
     try:
         output = BytesIO()
         st.session_state.excel_workbook.save(output)
+        output.seek(0)
         excel_data = output.getvalue()
         
+        # Determinar extensión según el archivo original
+        extension = "xlsm" if st.session_state.uploaded_filename.endswith('.xlsm') else "xlsx"
+        
         st.download_button(
-            label="📥 Descargar Excel con cambios",
+            label=f"📥 Descargar {st.session_state.uploaded_filename.replace('.xlsx', '').replace('.xlsm', '')}_actualizado.{extension}",
             data=excel_data,
-            file_name=f"arboles_actualizado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
+            file_name=f"{st.session_state.uploaded_filename.replace('.xlsx', '').replace('.xlsm', '')}_actualizado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{extension}",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if extension == "xlsx" else "application/vnd.ms-excel.sheet.macroEnabled.12",
+            use_container_width=True,
+            type="primary"
         )
-        st.info("💡 **Recuerda descargar el archivo** cuando termines de agregar todos los registros.")
+        
+        st.caption("💡 **Tip:** Puedes seguir agregando más registros antes de descargar. El archivo se mantiene en memoria con todos tus cambios.")
+        
     except Exception as e:
-        st.warning("""
-        ⚠️ **No se pudo generar la descarga automática.**
+        st.error("""
+        ⚠️ **Error al generar archivo de descarga.**
         
-        Esto suele pasar si el Excel tiene imágenes o formatos complejos.
+        Posibles causas:
+        - El archivo tiene formatos muy complejos
+        - Hay elementos incompatibles con la librería
         
+        **Solución:** Usa el modo Google Sheets para una experiencia sin problemas.
+        """)
+        if st.checkbox("🔍 Mostrar detalles técnicos"):
+            st.code(str(e)
         **Solución:** Usa el modo Google Sheets para una experiencia sin problemas.
         """)
         if st.checkbox("Mostrar detalles del error"):
