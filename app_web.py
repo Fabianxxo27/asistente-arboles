@@ -608,10 +608,7 @@ with st.form(key="formulario_arbol"):
         else:
             st.error(f"❌ Error al guardar: {resultado}")
 
-    # Mostrar resumen antes de descargar
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
+    # Guardar workbook en bytes
     st.markdown("---")
     
     col_desc, col_btn = st.columns([3, 2])
