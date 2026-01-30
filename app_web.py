@@ -678,6 +678,63 @@ with st.form(key="formulario_arbol"):
                         # Guardar el nuevo workbook
                         nuevo_output = BytesIO()
                         nuevo_wb.save(nuevo_output)
+                        nuevo_output.seek(0)
+                        nuevo_data = nuevo_output.getvalue()
+                        
+                        st.download_button(
+                            label="📥 Descargar Excel Nuevo (solo datos)",
+                            data=nuevo_data,
+                            file_name=f"arboles_datos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
+                        st.caption("⚠️ Sin imágenes ni formatos, solo datos tabulares")
+                except Exception as e2:
+                    st.error(f"Tampoco se pudo crear Excel nuevo: {str(e2)}")
+            
+            with st.expander("📋 Opción 2: Descargar solo registros nuevos en CSV"):
+                if st.session_state.registros_agregados > 0 and 'datos_agregados' in st.session_state:
+                    # Crear CSV con los datos agregados
+                    import csv
+                    csv_output = BytesIO()
+                    csv_output.write('\ufeff'.encode('utf-8'))  # BOM para Excel
+                    
+                    # Escribir encabezados
+                    headers = ['Fila', 'Entidad', 'NIT', 'ID/Código', 'Estado Fuste General', 'Estado Raíz General', 
+                              'Estado Sanitario General', 'Tipo Poda', 'Intensidad', 'Residuos']
+                    
+                    csv_text = ','.join(headers) + '\n'
+                    
+                    for item in st.session_state.datos_agregados:
+                        d = item['datos']
+                        row = [
+                            str(item['fila']),
+                            d.get('entidad', ''),
+                            d.get('nit', ''),
+                            d.get('codigo', ''),
+                            d.get('fuste_general', ''),
+                            d.get('raiz_general', ''),
+                            d.get('san_general', ''),
+                            d.get('tipo_poda', ''),
+                            d.get('intensidad', ''),
+                            d.get('residuos', '')
+                        ]
+                        csv_text += ','.join([f'"{r}"' for r in row]) + '\n'
+                    
+                    csv_output.write(csv_text.encode('utf-8'))
+                    csv_data = csv_output.getvalue()
+                    
+                    st.download_button(
+                        label="📥 Descargar Registros Nuevos (CSV)",
+                        data=csv_data,
+                        file_name=f"registros_nuevos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                    
+                    st.caption(f"📋 {st.session_state.registros_agregados} registro(s) para copiar a tu Excel original")
+                else:
+                    st.info("No hay registros nuevos para exportar")
                 else:
                     st.info("No hay registros nuevos para exportar")
             
@@ -690,60 +747,7 @@ with st.form(key="formulario_arbol"):
             """)
             
             if st.checkbox("🔍 Ver error técnico"):
-        st.caption("💡 **Tip:** Puedes seguir agregando más registros antes de descargar. El archivo se mantiene en memoria con todos tus cambios.")
-        
-    except Exception as e:
-        st.warning("""
-        ⚠️ **El archivo tiene formatos complejos que impiden la descarga directa.**
-        """)
-        
-        # Ofrecer descarga alternativa en CSV
-        st.markdown("### 📄 Descarga Alternativa")
-        st.info("✅ **Solución:** Descarga solo los nuevos registros en formato CSV y cópialos manualmente a tu Excel.")
-        
-        if st.session_state.registros_agregados > 0 and 'datos_agregados' in st.session_state:
-            # Crear CSV con los datos agregados
-            import csv
-            csv_output = BytesIO()
-            csv_output.write('\ufeff'.encode('utf-8'))  # BOM para Excel
-            
-            # Escribir encabezados
-            headers = ['Fila', 'Entidad', 'NIT', 'ID/Código', 'Estado Fuste General', 'Estado Raíz General', 
-                      'Estado Sanitario General', 'Tipo Poda', 'Intensidad', 'Residuos']
-            
-            csv_text = ','.join(headers) + '\n'
-            
-            for item in st.session_state.datos_agregados:
-                d = item['datos']
-                row = [
-                    str(item['fila']),
-                    d.get('entidad', ''),
-                    d.get('nit', ''),
-                    d.get('codigo', ''),
-                    d.get('fuste_general', ''),
-                    d.get('raiz_general', ''),
-                    d.get('san_general', ''),
-                    d.get('tipo_poda', ''),
-                    d.get('intensidad', ''),
-                    d.get('residuos', '')
-                ]
-                csv_text += ','.join([f'"{r}"' for r in row]) + '\n'
-            
-            csv_output.write(csv_text.encode('utf-8'))
-            csv_data = csv_output.getvalue()
-            
-            st.download_button(
-                label="📥 Descargar Registros Nuevos (CSV)",
-                data=csv_data,
-                file_name=f"registros_nuevos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
-            
-            st.caption(f"📋 {st.session_state.registros_agregados} registro(s) para copiar a tu Excel original")
-        
-        # Mostrar recomendación
-        st.markdown("---")
+                st.code(str(e))
         st.info("""
         **💡 Recomendación:** Para evitar estos problemas en el futuro:
         1. Usa **Google Sheets** (modo en la nube) - funciona sin problemas
