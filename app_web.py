@@ -424,7 +424,7 @@ else:
         worksheet = worksheet_excel  # Para usar en el formulario
         
     except Exception as e:
-        st.error(f"formulario_arbol_{st.session_state.form_key}ar Excel: {str(e)}")
+        st.error(f"❌ Error al cargar Excel: {str(e)}")
         st.stop()
 
 # Formulario
