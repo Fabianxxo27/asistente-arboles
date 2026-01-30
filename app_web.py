@@ -623,7 +623,15 @@ with st.form(key="formulario_arbol"):
             label=f"📥 Descargar {st.session_state.uploaded_filename.replace('.xlsx', '').replace('.xlsm', '')}_actualizado.{extension}",
             data=excel_data,
             file_name=f"{st.session_state.uploaded_filename.replace('.xlsx', '').replace('.xlsm', '')}_actualizado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{extension}",
-           warning("""
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if extension == "xlsx" else "application/vnd.ms-excel.sheet.macroEnabled.12",
+            use_container_width=True,
+            type="primary"
+        )
+        
+        st.caption("💡 **Tip:** Puedes seguir agregando más registros antes de descargar. El archivo se mantiene en memoria con todos tus cambios.")
+        
+    except Exception as e:
+        st.warning("""
         ⚠️ **El archivo tiene formatos complejos que impiden la descarga directa.**
         """)
         
