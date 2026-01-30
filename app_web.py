@@ -97,11 +97,23 @@ def obtener_ultimo_codigo(worksheet):
         return 19222
 
 def agregar_fila_sheets(worksheet, datos):
-    """Agrega una fila a Google Sheets"""
+    """Agrega o actualiza una fila en Google Sheets según el código/ID"""
     try:
-        # Obtener última fila
-        valores = worksheet.get_all_values()
-        nueva_fila = len(valores) + 1
+        # Obtener todos los valores de la columna C (códigos)
+        valores_columna_c = worksheet.col_values(3)  # Columna C
+        codigo_a_escribir = str(datos.get('codigo', ''))
+        
+        # Buscar si el código ya existe
+        fila_objetivo = None
+        for idx, valor in enumerate(valores_columna_c, start=1):
+            if str(valor).strip() == codigo_a_escribir.strip():
+                fila_objetivo = idx
+                break
+        
+        # Si no existe, agregar al final
+        if fila_objetivo is None:
+            valores = worksheet.get_all_values()
+            fila_objetivo = len(valores) + 1
         
         # Preparar fila con 80 columnas (ajusta según tu Excel)
         fila_datos = [''] * 80
@@ -165,9 +177,12 @@ def agregar_fila_sheets(worksheet, datos):
             if marcado:
                 fila_datos[col_excel - 1] = '1'
         
-        # Agregar la fila
-        worksheet.append_row(fila_datos)
-        return True, nueva_fila
+        # Escribir en la fila específica (reemplaza si existe, crea si no)
+        # Construir el rango A:fila_objetivo hasta la columna que necesites
+        rango = f'A{fila_objetivo}:BX{fila_objetivo}'  # BX = columna 76, ajusta si necesitas más
+        worksheet.update(rango, [fila_datos[:76]])  # Escribir solo las columnas necesarias
+        
+        return True, fila_objetivo
     except Exception as e:
         return False, str(e)
 
@@ -360,11 +375,11 @@ with st.form(key="formulario_arbol"):
         
         # Agregar a sheets
         with st.spinner('Guardando en Google Sheets...'):
-            exito, resultado = agregar_fila_sheets(worksheet, datos)
-        
-        if exito:
-            st.success(f"✅ **Registro agregado exitosamente en la fila {resultado}**")
+            exito, resultado = agregarguardado exitosamente en la fila {resultado}** (ID: {codigo})")
             st.balloons()
+            
+            # Auto-incrementar código para el siguiente
+            st.session_state.codigo_actual = int(codigo)
             
             # Auto-incrementar código
             st.session_state.codigo_actual = codigo + 1
