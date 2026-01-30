@@ -6,6 +6,7 @@ import json
 import os
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
+from openpyxl.cell.cell import MergedCell
 from io import BytesIO
 import copy
 import tempfile
@@ -661,8 +662,13 @@ if not usa_google_sheets:
                     # Copiar valores desde la fila 2 (después de encabezados)
                     for row_idx in range(2, max_row + 1):
                         for col_idx in range(1, max_col + 1):
-                            valor = worksheet_session.cell(row_idx, col_idx).value
-                            worksheet_download.cell(row_idx, col_idx).value = valor
+                            # Verificar que no sea una celda combinada antes de escribir
+                            cell_download = worksheet_download.cell(row_idx, col_idx)
+                            
+                            # Solo escribir si NO es MergedCell
+                            if not isinstance(cell_download, MergedCell):
+                                valor = worksheet_session.cell(row_idx, col_idx).value
+                                cell_download.value = valor
             
             # Guardar el workbook reconstruido
             output = BytesIO()
