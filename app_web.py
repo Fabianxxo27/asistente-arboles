@@ -142,13 +142,14 @@ def agregar_fila_excel(worksheet_excel, datos):
             if marcado:
                 worksheet_excel.cell(fila_objetivo, col_excel).value = '1'
         
-        if datos.get('san_copa_especifico'):
-            worksheet_excel.cell(fila_objetivo, 48).value = datos['san_copa_especifico']
-        
         # Estado Sanitario Fuste
         for col_excel, marcado in datos.get('checks_fuste_san', {}).items():
             if marcado:
                 worksheet_excel.cell(fila_objetivo, col_excel).value = '1'
+        
+        # Estado Sanitario Raíz Específico
+        if datos.get('san_raiz_especifico'):
+            worksheet_excel.cell(fila_objetivo, 48).value = datos['san_raiz_especifico']
         
         # Estados sanitarios generales
         if datos.get('san_general'):
@@ -160,6 +161,11 @@ def agregar_fila_excel(worksheet_excel, datos):
         if datos.get('san_raiz_general'):
             worksheet_excel.cell(fila_objetivo, 52).value = datos['san_raiz_general']
         
+        # Interferencia con líneas de servicios
+        for col_excel, marcado in datos.get('checks_servicios', {}).items():
+            if marcado:
+                worksheet_excel.cell(fila_objetivo, col_excel).value = '1'
+        
         # Causas de Poda
         for col_excel, marcado in datos.get('checks_poda', {}).items():
             if marcado:
@@ -170,13 +176,15 @@ def agregar_fila_excel(worksheet_excel, datos):
             worksheet_excel.cell(fila_objetivo, 66).value = datos['tipo_poda']
         if datos.get('intensidad'):
             worksheet_excel.cell(fila_objetivo, 67).value = datos['intensidad']
-        if datos.get('residuos'):
-            worksheet_excel.cell(fila_objetivo, 77).value = datos['residuos']
         
         # Concepto Técnico
         for col_excel, marcado in datos.get('checks_concepto', {}).items():
             if marcado:
                 worksheet_excel.cell(fila_objetivo, col_excel).value = '1'
+        
+        # Residuos
+        if datos.get('residuos'):
+            worksheet_excel.cell(fila_objetivo, 77).value = datos['residuos']
         
         return True, fila_objetivo
     except Exception as e:
@@ -222,46 +230,54 @@ def agregar_fila_sheets(worksheet, datos):
         if datos.get('raiz_general'):
             fila_datos[24] = datos['raiz_general']  # Columna Y (25)
         
-        # Estado Sanitario Copa (columnas 26-29, 40)
+        # Estado Sanitario Copa (columnas 26-40)
         for col_excel, marcado in datos.get('checks_copa', {}).items():
             if marcado:
                 fila_datos[col_excel - 1] = '1'
         
-        if datos.get('san_copa_especifico'):
-            fila_datos[47] = datos['san_copa_especifico']  # Columna AV (48)
-        
-        # Estado Sanitario Fuste
+        # Estado Sanitario Fuste (columnas 41-47)
         for col_excel, marcado in datos.get('checks_fuste_san', {}).items():
             if marcado:
                 fila_datos[col_excel - 1] = '1'
         
+        # Estado Sanitario Raíz Específico
+        if datos.get('san_raiz_especifico'):
+            fila_datos[47] = datos['san_raiz_especifico']  # Columna 48
+        
         # Estados sanitarios generales
         if datos.get('san_general'):
-            fila_datos[48] = datos['san_general']  # Columna AW (49)
+            fila_datos[48] = datos['san_general']  # Columna 49
         if datos.get('san_copa_general'):
-            fila_datos[49] = datos['san_copa_general']  # Columna AX (50)
+            fila_datos[49] = datos['san_copa_general']  # Columna 50
         if datos.get('san_fuste_general'):
-            fila_datos[50] = datos['san_fuste_general']  # Columna AY (51)
+            fila_datos[50] = datos['san_fuste_general']  # Columna 51
         if datos.get('san_raiz_general'):
-            fila_datos[51] = datos['san_raiz_general']  # Columna AZ (52)
+            fila_datos[51] = datos['san_raiz_general']  # Columna 52
         
-        # Causas de Poda (columnas 61-64)
+        # Interferencia con líneas de servicios (columnas 53-56)
+        for col_excel, marcado in datos.get('checks_servicios', {}).items():
+            if marcado:
+                fila_datos[col_excel - 1] = '1'
+        
+        # Causas de Poda (columnas 57-65)
         for col_excel, marcado in datos.get('checks_poda', {}).items():
             if marcado:
                 fila_datos[col_excel - 1] = '1'
         
         # Tipo e intensidad poda
         if datos.get('tipo_poda'):
-            fila_datos[65] = datos['tipo_poda']  # Columna BN (66)
+            fila_datos[65] = datos['tipo_poda']  # Columna 66
         if datos.get('intensidad'):
-            fila_datos[66] = datos['intensidad']  # Columna BO (67)
-        if datos.get('residuos'):
-            fila_datos[76] = datos['residuos']  # Columna BY (77)
+            fila_datos[66] = datos['intensidad']  # Columna 67
         
-        # Concepto Técnico
+        # Concepto Técnico (columnas 68-76)
         for col_excel, marcado in datos.get('checks_concepto', {}).items():
             if marcado:
                 fila_datos[col_excel - 1] = '1'
+        
+        # Residuos
+        if datos.get('residuos'):
+            fila_datos[76] = datos['residuos']  # Columna 77
         
         # Escribir en la fila específica (reemplaza si existe, crea si no)
         # Construir el rango A:fila_objetivo hasta la columna que necesites
@@ -486,23 +502,35 @@ with st.form(key="formulario_arbol"):
         raiz_general = st.selectbox("Estado Raíz General:", 
             ["", "Bueno", "Regular", "Malo"], index=1)
     
-    # Estado Sanitario Copa
-    st.markdown('<div class="section-header">🍃 Estado Sanitario Copa</div>', unsafe_allow_html=True)
-    cols_copa = st.columns(5)
+    # Estado Sanitario Copa (15 opciones: columnas 26-40)
+    st.markdown('<div class="section-header">🍃 Estado Sanitario Específico Copa</div>', unsafe_allow_html=True)
+    cols_copa = st.columns(6)
     checks_copa = {}
-    opciones_copa = [("He", 26), ("An", 27), ("Ag", 28), ("Ne", 29), ("NA", 40)]
+    opciones_copa = [
+        ("He", 26), ("An", 27), ("Ag", 28), ("Ne", 29), ("Tu", 30),
+        ("Cl", 31), ("Ma", 32), ("Ca", 33), ("PL", 34), ("Mi", 35),
+        ("C", 36), ("Ro", 37), ("Psu", 38), ("PI", 39), ("NA", 40)
+    ]
     for idx, (nombre, col) in enumerate(opciones_copa):
-        with cols_copa[idx]:
+        with cols_copa[idx % 6]:
             checks_copa[col] = st.checkbox(nombre, key=f"copa_{col}")
     
-    san_copa_especifico = st.selectbox("Estado Sanitario Copa Específico:", 
-        ["", "Ninguna de las anteriores"], index=1)
-    
-    # Estado Sanitario Fuste
-    st.markdown('<div class="section-header">🏥 Estado Sanitario Fuste</div>', unsafe_allow_html=True)
+    # Estado Sanitario Fuste (7 opciones: columnas 41-47)
+    st.markdown('<div class="section-header">🏥 Estado Sanitario Específico Fuste</div>', unsafe_allow_html=True)
+    cols_fuste_san = st.columns(7)
     checks_fuste_san = {}
-    checks_fuste_san[47] = st.checkbox("NA", key="fuste_san_47")
+    opciones_fuste_san = [
+        ("Ch", 41), ("Plf", 42), ("Go", 43), ("Tu", 44),
+        ("Ag", 45), ("PI", 46), ("NA", 47)
+    ]
+    for idx, (nombre, col) in enumerate(opciones_fuste_san):
+        with cols_fuste_san[idx]:
+            checks_fuste_san[col] = st.checkbox(nombre, key=f"fuste_san_{col}")
     
+    # Estado Sanitario Raíz Específico (columna 48)
+    san_raiz_especifico = st.text_input("Estado Sanitario Raíz Específico:")
+    
+    # Estados sanitarios generales (columnas 49-52)
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         san_general = st.selectbox("Estado Sanitario General:", 
@@ -517,13 +545,28 @@ with st.form(key="formulario_arbol"):
         san_raiz_general = st.selectbox("Estado Sanitario Raíz General:", 
             ["", "Bueno", "Regular", "Malo"], index=1)
     
-    # Causas de Poda
-    st.markdown('<div class="section-header">✂️ Causas de Poda</div>', unsafe_allow_html=True)
-    cols_poda = st.columns(3)
+    # Interferencia con líneas de servicios (columnas 53-56)
+    st.markdown('<div class="section-header">⚡ Interferencia con Líneas de Servicios</div>', unsafe_allow_html=True)
+    cols_servicios = st.columns(4)
+    checks_servicios = {}
+    opciones_servicios = [
+        ("Luminarias", 53), ("Alta tensión", 54), ("Media Tensión", 55), ("Subterráneas", 56)
+    ]
+    for idx, (nombre, col) in enumerate(opciones_servicios):
+        with cols_servicios[idx]:
+            checks_servicios[col] = st.checkbox(nombre, key=f"servicio_{col}")
+    
+    # Causas de intervención de la poda (columnas 57-65)
+    st.markdown('<div class="section-header">✂️ Causas de Intervención de la Poda</div>', unsafe_allow_html=True)
+    cols_poda = st.columns(5)
     checks_poda = {}
-    opciones_poda = [("Ramas rotas", 61), ("Copa asimétrica", 62), ("Ramas pendulares", 64)]
+    opciones_poda = [
+        ("Corteza incluida", 57), ("Grietas", 58), ("Excesivos rebrotes", 59),
+        ("Pudriciones", 60), ("Ramas rotas o muertas", 61), ("Copa asimétrica", 62),
+        ("Ramas sobreextendidas", 63), ("Ramas pendulares", 64), ("Raíces extranguladoras", 65)
+    ]
     for idx, (nombre, col) in enumerate(opciones_poda):
-        with cols_poda[idx]:
+        with cols_poda[idx % 5]:
             checks_poda[col] = st.checkbox(nombre, key=f"poda_{col}")
     
     col1, col2, col3 = st.columns(3)
@@ -532,14 +575,28 @@ with st.form(key="formulario_arbol"):
             ["", "De mejoramiento-Estructura", "De mantenimiento", "Especial", "Sanitaria"], 
             index=1)
     with col2:
-        intensidad = st.text_input("Intensidad (%):")
+        intensidad = st.text_input("Intensidad de la Poda (%):")
     with col3:
-        residuos = st.text_input("Residuos (kg):")
+        residuos = st.text_input("Residuos Generados (kg):")
     
-    # Concepto Técnico
+    # Concepto Técnico (columnas 68-76: 9 opciones)
     st.markdown('<div class="section-header">📋 Concepto Técnico</div>', unsafe_allow_html=True)
+    cols_concepto = st.columns(5)
     checks_concepto = {}
-    checks_concepto[69] = st.checkbox("Problemas seguridad", key="concepto_69")
+    opciones_concepto = [
+        ("Inclinación severa hacia estructuras", 68),
+        ("Problemas de seguridad en la zona", 69),
+        ("Minimizar riesgo de volcamiento", 70),
+        ("Mantenimiento de individuos jóvenes", 71),
+        ("Disminuir competencia con otros individuos arbóreos", 72),
+        ("Mantenimiento de arbolado adulto", 73),
+        ("Despeje de cono luminico", 74),
+        ("Liberación de infraestructura urbana y movilidad", 75),
+        ("Despeje sistema circulación urbana", 76)
+    ]
+    for idx, (nombre, col) in enumerate(opciones_concepto):
+        with cols_concepto[idx % 5]:
+            checks_concepto[col] = st.checkbox(nombre, key=f"concepto_{col}")
     
     # Botón enviar
     st.markdown("<br>", unsafe_allow_html=True)
@@ -558,12 +615,13 @@ if submitted:
         'raiz_especifico': raiz_especifico,
         'raiz_general': raiz_general,
         'checks_copa': {col: True for col, val in checks_copa.items() if val},
-        'san_copa_especifico': san_copa_especifico,
         'checks_fuste_san': {col: True for col, val in checks_fuste_san.items() if val},
+        'san_raiz_especifico': san_raiz_especifico,
         'san_general': san_general,
         'san_copa_general': san_copa_general,
         'san_fuste_general': san_fuste_general,
         'san_raiz_general': san_raiz_general,
+        'checks_servicios': {col: True for col, val in checks_servicios.items() if val},
         'checks_poda': {col: True for col, val in checks_poda.items() if val},
         'tipo_poda': tipo_poda,
         'intensidad': intensidad,
