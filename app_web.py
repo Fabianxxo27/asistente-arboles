@@ -283,8 +283,11 @@ modo = st.radio(
     horizontal=True
 )
 
+# Variable global para saber qué modo está activo
+usa_google_sheets = (modo == "🌐 Google Sheets (en la nube)")
+
 # ============= MODO GOOGLE SHEETS =============
-if modo == "🌐 Google Sheets (en la nube)":
+if usa_google_sheets:
     # Intentar conectar
     client = conectar_google_sheets()
 
@@ -344,9 +347,10 @@ if modo == "🌐 Google Sheets (en la nube)":
     if 'codigo_actual' not in st.session_state:
         st.session_state.codigo_actual = siguiente_codigo
 
-# Variable para controlar si se debe reiniciar el formulario
-if 'form_key' not in st.session_state:
-    st.session_state.form_key = 0
+    # Variable para controlar si se debe reiniciar el formulario
+    if 'form_key' not in st.session_state:
+        st.session_state.form_key = 0
+        
 # ============= MODO ARCHIVO EXCEL =============
 else:
     st.markdown("### 📤 Sube tu archivo Excel")
@@ -406,7 +410,6 @@ else:
         if 'form_key' not in st.session_state:
             st.session_state.form_key = 0
         
-        usa_google_sheets = False
         worksheet = worksheet_excel  # Para usar en el formulario
         
     except Exception as e:
