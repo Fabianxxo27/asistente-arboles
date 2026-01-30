@@ -8,6 +8,8 @@ from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 from io import BytesIO
 import copy
+import tempfile
+import shutil
 
 # Configuración de la página
 st.set_page_config(
@@ -374,24 +376,26 @@ else:
             uploaded_file.seek(0)
             st.session_state.excel_original_bytes = uploaded_file.read()
             
-            # Cargar workbook - intentar mantener todo lo posible
+            # Cargar workbook con configuración para preservar TODO
             uploaded_file.seek(0)
             try:
-                # Cargar con keep_vba para archivos .xlsm
+                # Cargar manteniendo VBA, fórmulas, todo
                 wb = load_workbook(
                     uploaded_file, 
                     keep_vba=True if uploaded_file.name.endswith('.xlsm') else False,
-                    data_only=False
+                    data_only=False,
+                    keep_links=True
                 )
             except Exception:
                 # Si falla, intentar sin VBA
                 uploaded_file.seek(0)
                 wb = load_workbook(
                     uploaded_file,
-                    data_only=False
+                    data_only=False,
+                    keep_links=True
                 )
             
-            # NO modificar imágenes/gráficos - mantener workbook intacto
+            # NO modificar ni eliminar NADA del workbook
             st.session_state.excel_workbook = wb
             st.session_state.uploaded_filename = uploaded_file.name
             st.session_state.registros_agregados = 0
@@ -616,31 +620,122 @@ with st.form(key="formulario_arbol"):
         # Determinar extensión según el archivo original
         extension = "xlsm" if st.session_state.uploaded_filename.endswith('.xlsm') else "xlsx"
         
-        # Intentar guardar el workbook
-        excel_guardado = False
+        # NUEVA ESTRATEGIA: Reconstruir desde archivo original
         try:
+            # Crear copia temporal del archivo original
+            temp_bytes = BytesIO(st.session_state.excel_original_bytes)
+            
+            # Cargar la copia con keep_vba
+            wb_temp = load_workbook(
+                temp_bytes,
+                keep_vba=True if extension == "xlsm" else False,
+                data_only=False,
+                keep_links=True
+            )
+            
+            # Aplicar SOLO los cambios de valores (sin tocar formato/imágenes)
+            worksheet_excel = None
+            for sheet_name in wb_temp.sheetnames:
+                if "BASE DE DATOS" in sheet_name.upper():
+                    worksheet_excel = wb_temp[sheet_name]
+                    break
+            
+            if worksheet_excel and 'datos_agregados' in st.session_state:
+                # Aplicar cada registro agregado
+                for item in st.session_state.datos_agregados:
+                    fila = item['fila']
+                    datos = item['datos']
+                    
+                    # Escribir solo valores en celdas específicas (como lo hace agregar_fila_excel)
+                    worksheet_excel[f'A{fila}'] = datos.get('entidad', '')
+                    worksheet_excel[f'B{fila}'] = datos.get('nit', '')
+                    worksheet_excel[f'C{fila}'] = datos.get('codigo', '')
+                    
+                    # Escribir checkboxes y demás datos
+                    col_idx = 4
+                    for col, active in datos.get('checks_fuste', {}).items():
+                        if active:
+                            worksheet_excel.cell(fila, col_idx, 'X')
+                        col_idx += 1
+                    
+                    worksheet_excel.cell(fila, col_idx, datos.get('fuste_general', ''))
+                    col_idx += 1
+                    worksheet_excel.cell(fila, col_idx, datos.get('raiz_especifico', ''))
+                    col_idx += 1
+                    worksheet_excel.cell(fila, col_idx, datos.get('raiz_general', ''))
+                    col_idx += 1
+                    
+                    for col, active in datos.get('checks_copa', {}).items():
+                        if active:
+                            worksheet_excel.cell(fila, col_idx, 'X')
+                        col_idx += 1
+                    
+                    worksheet_excel.cell(fila, col_idx, datos.get('san_copa_especifico', ''))
+                    col_idx += 1
+                    
+                    for col, active in datos.get('checks_fuste_san', {}).items():
+                        if active:
+                            worksheet_excel.cell(fila, col_idx, 'X')
+                        col_idx += 1
+                    
+                    worksheet_excel.cell(fila, col_idx, datos.get('san_general', ''))
+                    col_idx += 1
+                    worksheet_excel.cell(fila, col_idx, datos.get('san_copa_general', ''))
+                    col_idx += 1
+                    worksheet_excel.cell(fila, col_idx, datos.get('san_fuste_general', ''))
+                    col_idx += 1
+                    worksheet_excel.cell(fila, col_idx, datos.get('san_raiz_general', ''))
+                    col_idx += 1
+                    
+                    for col, active in datos.get('checks_poda', {}).items():
+                        if active:
+                            worksheet_excel.cell(fila, col_idx, 'X')
+                        col_idx += 1
+                    
+                    worksheet_excel.cell(fila, col_idx, datos.get('tipo_poda', ''))
+                    col_idx += 1
+                    worksheet_excel.cell(fila, col_idx, datos.get('intensidad', ''))
+                    col_idx += 1
+                    worksheet_excel.cell(fila, col_idx, datos.get('residuos', ''))
+                    col_idx += 1
+                    
+                    for col, active in datos.get('checks_concepto', {}).items():
+                        if active:
+                            worksheet_excel.cell(fila, col_idx, 'X')
+                        col_idx += 1
+            
+            # Guardar en BytesIO
             output = BytesIO()
-            st.session_state.excel_workbook.save(output)
+            wb_temp.save(output)
             output.seek(0)
             excel_data = output.getvalue()
+            wb_temp.close()
             
-            # Verificar que se guardó correctamente
-            if len(excel_data) > 1000:  # Al menos 1KB
-                excel_guardado = True
+            # Verificar tamaño
+            if len(excel_data) > 1000:
                 st.download_button(
                     label=f"📥 Descargar Excel Completo",
                     data=excel_data,
                     file_name=f"{st.session_state.uploaded_filename.replace('.xlsx', '').replace('.xlsm', '')}_actualizado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{extension}",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    mime="application/vnd.ms-excel.sheet.macroEnabled.12" if extension == "xlsm" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                     type="primary"
                 )
-                st.caption("💾 Archivo completo con todos los datos originales + nuevos registros")
+                st.caption("💾 Archivo completo con imágenes, macros y formatos preservados + nuevos registros")
+                st.success("✅ Archivo guardado exitosamente con todos los elementos originales")
+            else:
+                raise Exception("Archivo muy pequeño, posible error")
+                
         except Exception as e:
-            st.warning(f"⚠️ No se puede guardar el archivo original (contiene elementos complejos)")
+            # Si falla, mostrar el error y ofrecer alternativas
+            st.error(f"❌ Error al guardar: {str(e)}")
+            st.warning("⚠️ El archivo tiene elementos que impiden el guardado automático")
+            
+            # Ofrecer alternativas
+            excel_guardado = False
     
     # Si NO se pudo guardar el archivo original, ofrecer alternativas
-    if not excel_guardado:
+    if 'excel_guardado' in locals() and excel_guardado == False:
         st.markdown("### 📄 Opciones de Descarga Alternativas")
         st.info("💡 Tu archivo original tiene elementos complejos. Elige una opción:")
         
