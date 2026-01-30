@@ -210,9 +210,20 @@ if not spreadsheet_id:
 
 try:
     spreadsheet = client.open_by_key(spreadsheet_id)
-    worksheet = spreadsheet.worksheet("BASE DE DATOS")
     
-    st.success(f"✅ **Conectado a:** {spreadsheet.title}")
+    # Buscar la hoja BASE DE DATOS (con o sin espacios)
+    worksheet = None
+    for sheet in spreadsheet.worksheets():
+        if "BASE DE DATOS" in sheet.title.upper():
+            worksheet = sheet
+            break
+    
+    if worksheet is None:
+        st.error("❌ No se encontró ninguna hoja con nombre 'BASE DE DATOS'")
+        st.info(f"Hojas disponibles: {', '.join([s.title for s in spreadsheet.worksheets()])}")
+        st.stop()
+    
+    st.success(f"✅ **Conectado a:** {spreadsheet.title} (Hoja: {worksheet.title})")
     
     # Obtener último código
     ultimo_codigo = obtener_ultimo_codigo(worksheet)
@@ -220,7 +231,7 @@ try:
     
 except Exception as e:
     st.error(f"❌ Error: {str(e)}")
-    st.info("Verifica que:\n- El ID sea correcto\n- La hoja se llame 'BASE DE DATOS'\n- Hayas compartido el sheet con la cuenta de servicio")
+    st.info("Verifica que:\n- El ID sea correcto\n- Hayas compartido el sheet con: asistente@excel-485919.iam.gserviceaccount.com\n- La cuenta de servicio tenga permisos de Editor")
     st.stop()
 
 # Inicializar session state para el código
