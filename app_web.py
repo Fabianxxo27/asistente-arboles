@@ -624,11 +624,50 @@ if not usa_google_sheets:
         # Determinar extensión según el archivo original
         extension = "xlsm" if st.session_state.uploaded_filename.endswith('.xlsm') else "xlsx"
         
-        # ESTRATEGIA: Guardar el workbook actual que ya tiene todos los cambios
+        # ESTRATEGIA: Reconstruir desde bytes originales + aplicar cambios
         try:
-            # El workbook en session_state ya tiene todos los datos actualizados
+            # Cargar copia fresca del archivo original cada vez
+            temp_file = BytesIO(st.session_state.excel_original_bytes)
+            
+            # Cargar con keep_vba
+            wb_download = load_workbook(
+                temp_file,
+                keep_vba=True if extension == "xlsm" else False,
+                data_only=False,
+                keep_links=True
+            )
+            
+            # Encontrar la hoja BASE DE DATOS
+            worksheet_download = None
+            for sheet_name in wb_download.sheetnames:
+                if "BASE DE DATOS" in sheet_name.upper():
+                    worksheet_download = wb_download[sheet_name]
+                    break
+            
+            if worksheet_download:
+                # Obtener la hoja del workbook en sesión que tiene los datos actualizados
+                worksheet_session = None
+                for sheet_name in st.session_state.excel_workbook.sheetnames:
+                    if "BASE DE DATOS" in sheet_name.upper():
+                        worksheet_session = st.session_state.excel_workbook[sheet_name]
+                        break
+                
+                if worksheet_session:
+                    # Copiar solo los VALORES de las celdas modificadas
+                    # Obtener el rango de filas que tienen datos
+                    max_row = worksheet_session.max_row
+                    max_col = worksheet_session.max_column
+                    
+                    # Copiar valores desde la fila 2 (después de encabezados)
+                    for row_idx in range(2, max_row + 1):
+                        for col_idx in range(1, max_col + 1):
+                            valor = worksheet_session.cell(row_idx, col_idx).value
+                            worksheet_download.cell(row_idx, col_idx).value = valor
+            
+            # Guardar el workbook reconstruido
             output = BytesIO()
-            st.session_state.excel_workbook.save(output)
+            wb_download.save(output)
+            wb_download.close()
             output.seek(0)
             excel_data = output.getvalue()
             
