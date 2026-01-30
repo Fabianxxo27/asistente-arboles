@@ -377,29 +377,21 @@ else:
             # Cargar workbook - intentar mantener todo lo posible
             uploaded_file.seek(0)
             try:
-                # Primer intento: cargar normalmente
+                # Cargar con keep_vba para archivos .xlsm
                 wb = load_workbook(
                     uploaded_file, 
-                    keep_vba=True,
-                    data_only=False, 
-                    keep_links=False
+                    keep_vba=True if uploaded_file.name.endswith('.xlsm') else False,
+                    data_only=False
                 )
             except Exception:
-                # Segundo intento: sin VBA si falla
+                # Si falla, intentar sin VBA
                 uploaded_file.seek(0)
                 wb = load_workbook(
                     uploaded_file,
-                    data_only=False,
-                    keep_links=False
+                    data_only=False
                 )
             
-            # Limpiar imágenes para evitar problemas al guardar
-            for sheet in wb.worksheets:
-                if hasattr(sheet, '_images') and sheet._images:
-                    sheet._images = []
-                if hasattr(sheet, '_charts') and sheet._charts:
-                    sheet._charts = []
-            
+            # NO modificar imágenes/gráficos - mantener workbook intacto
             st.session_state.excel_workbook = wb
             st.session_state.uploaded_filename = uploaded_file.name
             st.session_state.registros_agregados = 0
@@ -625,6 +617,7 @@ with st.form(key="formulario_arbol"):
         extension = "xlsm" if st.session_state.uploaded_filename.endswith('.xlsm') else "xlsx"
         
         # Intentar guardar el workbook
+        excel_guardado = False
         try:
             output = BytesIO()
             st.session_state.excel_workbook.save(output)
@@ -632,7 +625,8 @@ with st.form(key="formulario_arbol"):
             excel_data = output.getvalue()
             
             # Verificar que se guardó correctamente
-            if len(excel_data) > 0:
+            if len(excel_data) > 1000:  # Al menos 1KB
+                excel_guardado = True
                 st.download_button(
                     label=f"📥 Descargar Excel Completo",
                     data=excel_data,
@@ -642,18 +636,15 @@ with st.form(key="formulario_arbol"):
                     type="primary"
                 )
                 st.caption("💾 Archivo completo con todos los datos originales + nuevos registros")
-            else:
-                raise Exception("Archivo vacío")
-                
         except Exception as e:
-            # Si falla, mostrar mensaje de error pero ofrecer CSV
-            st.error(f"❌ No se pudo guardar el Excel completo")
-            st.warning("⚠️ El archivo tiene elementos incompatibles (imágenes/gráficos complejos)")
+            st.warning(f"⚠️ No se puede guardar el archivo original (contiene elementos complejos)")
+        
+        # Si NO se pudo guardar el archivo original, ofrecer alternativas
+        if not excel_guardado:
+            st.markdown("### 📄 Opciones de Descarga Alternativas")
+            st.info("💡 Tu archivo original tiene elementos complejos. Elige una opción:")
             
-            # Intentar generar un Excel nuevo desde cero con los datos
-            st.markdown("### 📄 Opciones Alternativas:")
-            
-            with st.expander("🔄 Opción 1: Descargar datos en Excel nuevo (sin formato original)"):
+            with st.expander("✅ RECOMENDADO: Descargar Excel nuevo con TODOS los datos", expanded=True):
                 try:
                     from openpyxl import Workbook
                     
@@ -670,10 +661,15 @@ with st.form(key="formulario_arbol"):
                             break
                     
                     if worksheet_excel:
-                        # Copiar datos celda por celda
-                        for row in worksheet_excel.iter_rows():
-                            for cell in row:
-                                nuevo_ws[cell.coordinate].value = cell.value
+                        # Copiar datos celda por celda (solo valores, sin formato)
+                        max_row = worksheet_excel.max_row
+                        max_col = worksheet_excel.max_column
+                        
+                        st.info(f"📊 Copiando {max_row} filas y {max_col} columnas...")
+                        
+                        for row_idx, row in enumerate(worksheet_excel.iter_rows(min_row=1, max_row=max_row, max_col=max_col), 1):
+                            for col_idx, cell in enumerate(row, 1):
+                                nuevo_ws.cell(row=row_idx, column=col_idx, value=cell.value)
                         
                         # Guardar el nuevo workbook
                         nuevo_output = BytesIO()
@@ -681,18 +677,22 @@ with st.form(key="formulario_arbol"):
                         nuevo_output.seek(0)
                         nuevo_data = nuevo_output.getvalue()
                         
+                        st.success("✅ Excel nuevo creado exitosamente")
                         st.download_button(
-                            label="📥 Descargar Excel Nuevo (solo datos)",
+                            label="📥 Descargar Excel Nuevo (TODOS los datos)",
                             data=nuevo_data,
-                            file_name=f"arboles_datos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            file_name=f"arboles_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True
+                            use_container_width=True,
+                            type="primary"
                         )
-                        st.caption("⚠️ Sin imágenes ni formatos, solo datos tabulares")
+                        st.caption(f"✅ Contiene TODOS los datos ({max_row} filas) sin imágenes/formatos complejos")
+                    else:
+                        st.error("No se encontró la hoja BASE DE DATOS")
                 except Exception as e2:
-                    st.error(f"Tampoco se pudo crear Excel nuevo: {str(e2)}")
+                    st.error(f"❌ Error al crear Excel nuevo: {str(e2)}")
             
-            with st.expander("📋 Opción 2: Descargar solo registros nuevos en CSV"):
+            with st.expander("📋 Opción 2: Descargar solo nuevos registros en CSV"):
                 if st.session_state.registros_agregados > 0 and 'datos_agregados' in st.session_state:
                     # Crear CSV con los datos agregados
                     import csv
@@ -739,21 +739,16 @@ with st.form(key="formulario_arbol"):
             # Mostrar recomendación
             st.markdown("---")
             st.info("""
-            **💡 Recomendación:** Para evitar estos problemas:
-            - Usa **Google Sheets** (funciona perfectamente con cualquier dato)
-            - O elimina imágenes/gráficos de tu Excel original
+            **💡 Recomendación final:**
+            - **Opción 1 (Excel nuevo)**: Archivo completo listo para usar ✅
+            - **Usa Google Sheets**: Nunca tendrás estos problemas 🌐
             """)
             
-            if st.checkbox("🔍 Ver error técnico"):
-                st.code(str(e))
-        st.info("""
-        **💡 Recomendación:** Para evitar estos problemas en el futuro:
-        1. Usa **Google Sheets** (modo en la nube) - funciona sin problemas
-        2. O simplifica tu Excel eliminando imágenes/formatos complejos
-        """)
-        
-        if st.checkbox("🔍 Mostrar detalles técnicos"):
-            st.code(str(e))
+            if st.checkbox("🔍 Ver detalles técnicos"):
+                st.code(f"Archivo: {st.session_state.uploaded_filename}\nError: Openpyxl no puede preservar imágenes/macros al guardar")
+    
+    except Exception as e:
+        st.error(f"Error fatal: {str(e)}")
 
 # Footer
 st.markdown("---")
