@@ -4,6 +4,8 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime
 import json
 import os
+from openpyxl import load_workbook
+from io import BytesIO
 
 # Configuración de la página
 st.set_page_config(
@@ -95,6 +97,85 @@ def obtener_ultimo_codigo(worksheet):
         return 19222  # Valor inicial si no hay códigos
     except:
         return 19222
+
+def agregar_fila_excel(worksheet_excel, datos):
+    """Agrega o actualiza una fila en Excel según el código/ID"""
+    try:
+        codigo_a_escribir = str(datos.get('codigo', ''))
+        
+        # Buscar si el código ya existe
+        fila_objetivo = None
+        for idx, row in enumerate(worksheet_excel.iter_rows(min_row=2, min_col=3, max_col=3), start=2):
+            if str(row[0].value).strip() == codigo_a_escribir.strip():
+                fila_objetivo = idx
+                break
+        
+        # Si no existe, agregar al final
+        if fila_objetivo is None:
+            fila_objetivo = worksheet_excel.max_row + 1
+        
+        # Escribir datos básicos
+        worksheet_excel.cell(fila_objetivo, 1).value = datos.get('entidad', 'OTRO')  # Columna A
+        worksheet_excel.cell(fila_objetivo, 2).value = datos.get('nit', '901145808-5')  # Columna B
+        worksheet_excel.cell(fila_objetivo, 3).value = codigo_a_escribir  # Columna C
+        
+        # Estado Físico Fuste
+        for col_excel, marcado in datos.get('checks_fuste', {}).items():
+            if marcado:
+                worksheet_excel.cell(fila_objetivo, col_excel).value = '1'
+        
+        # Estados generales
+        if datos.get('fuste_general'):
+            worksheet_excel.cell(fila_objetivo, 23).value = datos['fuste_general']
+        if datos.get('raiz_especifico'):
+            worksheet_excel.cell(fila_objetivo, 24).value = datos['raiz_especifico']
+        if datos.get('raiz_general'):
+            worksheet_excel.cell(fila_objetivo, 25).value = datos['raiz_general']
+        
+        # Estado Sanitario Copa
+        for col_excel, marcado in datos.get('checks_copa', {}).items():
+            if marcado:
+                worksheet_excel.cell(fila_objetivo, col_excel).value = '1'
+        
+        if datos.get('san_copa_especifico'):
+            worksheet_excel.cell(fila_objetivo, 48).value = datos['san_copa_especifico']
+        
+        # Estado Sanitario Fuste
+        for col_excel, marcado in datos.get('checks_fuste_san', {}).items():
+            if marcado:
+                worksheet_excel.cell(fila_objetivo, col_excel).value = '1'
+        
+        # Estados sanitarios generales
+        if datos.get('san_general'):
+            worksheet_excel.cell(fila_objetivo, 49).value = datos['san_general']
+        if datos.get('san_copa_general'):
+            worksheet_excel.cell(fila_objetivo, 50).value = datos['san_copa_general']
+        if datos.get('san_fuste_general'):
+            worksheet_excel.cell(fila_objetivo, 51).value = datos['san_fuste_general']
+        if datos.get('san_raiz_general'):
+            worksheet_excel.cell(fila_objetivo, 52).value = datos['san_raiz_general']
+        
+        # Causas de Poda
+        for col_excel, marcado in datos.get('checks_poda', {}).items():
+            if marcado:
+                worksheet_excel.cell(fila_objetivo, col_excel).value = '1'
+        
+        # Tipo e intensidad poda
+        if datos.get('tipo_poda'):
+            worksheet_excel.cell(fila_objetivo, 66).value = datos['tipo_poda']
+        if datos.get('intensidad'):
+            worksheet_excel.cell(fila_objetivo, 67).value = datos['intensidad']
+        if datos.get('residuos'):
+            worksheet_excel.cell(fila_objetivo, 77).value = datos['residuos']
+        
+        # Concepto Técnico
+        for col_excel, marcado in datos.get('checks_concepto', {}).items():
+            if marcado:
+                worksheet_excel.cell(fila_objetivo, col_excel).value = '1'
+        
+        return True, fila_objetivo
+    except Exception as e:
+        return False, str(e)
 
 def agregar_fila_sheets(worksheet, datos):
     """Agrega o actualiza una fila en Google Sheets según el código/ID"""
@@ -190,68 +271,137 @@ def agregar_fila_sheets(worksheet, datos):
 st.markdown("""
 <div class="header-style">
     <h1>🌳 Asistente de Registro de Árboles</h1>
-    <p>Registro en tiempo real sincronizado con Google Sheets</p>
+    <p>Registro en tiempo real sincronizado con Google Sheets o Excel</p>
 </div>
 """, unsafe_allow_html=True)
 
-# Intentar conectar
-client = conectar_google_sheets()
-
-if client is None:
-    st.error("⚠️ **No se pudo conectar a Google Sheets**")
-    st.info("""
-    **Configuración necesaria:**
-    
-    1. Crea un proyecto en Google Cloud Platform
-    2. Habilita Google Sheets API y Google Drive API
-    3. Crea credenciales de cuenta de servicio
-    4. Descarga el archivo JSON y guárdalo como `credenciales.json` en esta carpeta
-    5. Comparte tu Google Sheet con el email de la cuenta de servicio
-    
-    📖 Ver instrucciones completas en `README_WEB.md`
-    """)
-    st.stop()
-
-# Selector de hoja
-spreadsheet_id = st.text_input(
-    "🔗 ID de Google Sheets",
-    placeholder="Pega aquí el ID de tu Google Sheet (desde la URL)",
-    help="El ID está en la URL: https://docs.google.com/spreadsheets/d/[ID]/edit"
+# Selector de modo
+st.markdown("### 📂 Selecciona el modo de trabajo:")
+modo = st.radio(
+    "¿Cómo quieres trabajar?",
+    ["🌐 Google Sheets (en la nube)", "📁 Archivo Excel (subir/descargar)"],
+    horizontal=True
 )
 
-if not spreadsheet_id:
-    st.warning("⬆️ Ingresa el ID de tu Google Sheet para continuar")
-    st.stop()
+# ============= MODO GOOGLE SHEETS =============
+if modo == "🌐 Google Sheets (en la nube)":
+    # Intentar conectar
+    client = conectar_google_sheets()
 
-try:
-    spreadsheet = client.open_by_key(spreadsheet_id)
+    if client is None:
+        st.error("⚠️ **No se pudo conectar a Google Sheets**")
+        st.info("""
+        **Configuración necesaria:**
+        
+        1. Crea un proyecto en Google Cloud Platform
+        2. Habilita Google Sheets API y Google Drive API
+        3. Crea credenciales de cuenta de servicio
+        4. Descarga el archivo JSON y guárdalo como `credenciales.json` en esta carpeta
+        5. Comparte tu Google Sheet con el email de la cuenta de servicio
+        
+        📖 Ver instrucciones completas en `README_WEB.md`
+        """)
+        st.stop()
+
+    # Selector de hoja
+    spreadsheet_id = st.text_input(
+        "🔗 ID de Google Sheets",
+        placeholder="Pega aquí el ID de tu Google Sheet (desde la URL)",
+        help="El ID está en la URL: https://docs.google.com/spreadsheets/d/[ID]/edit"
+    )
+
+    if not spreadsheet_id:
+        st.warning("⬆️ Ingresa el ID de tu Google Sheet para continuar")
+        st.stop()
+
+    try:
+        spreadsheet = client.open_by_key(spreadsheet_id)
+        
+        # Buscar la hoja BASE DE DATOS (con o sin espacios)
+        worksheet = None
+        for sheet in spreadsheet.worksheets():
+            if "BASE DE DATOS" in sheet.title.upper():
+                worksheet = sheet
+                break
+        
+        if worksheet is None:
+            st.error("❌ No se encontró ninguna hoja con nombre 'BASE DE DATOS'")
+            st.info(f"Hojas disponibles: {', '.join([s.title for s in spreadsheet.worksheets()])}")
+            st.stop()
+        
+        st.success(f"✅ **Conectado a:** {spreadsheet.title} (Hoja: {worksheet.title})")
+        
+        # Obtener último código
+        ultimo_codigo = obtener_ultimo_codigo(worksheet)
+        siguiente_codigo = ultimo_codigo + 1
+        
+    except Exception as e:
+        st.error(f"❌ Error: {str(e)}")
+        st.info("Verifica que:\n- El ID sea correcto\n- Hayas compartido el sheet con: asistente@excel-485919.iam.gserviceaccount.com\n- La cuenta de servicio tenga permisos de Editor")
+        st.stop()
+
+    # Inicializar session state para el código
+    if 'codigo_actual' not in st.session_state:
+        st.session_state.codigo_actual = siguiente_codigo
     
-    # Buscar la hoja BASE DE DATOS (con o sin espacios)
-    worksheet = None
-    for sheet in spreadsheet.worksheets():
-        if "BASE DE DATOS" in sheet.title.upper():
-            worksheet = sheet
-            break
+    usa_google_sheets = True
     
-    if worksheet is None:
-        st.error("❌ No se encontró ninguna hoja con nombre 'BASE DE DATOS'")
-        st.info(f"Hojas disponibles: {', '.join([s.title for s in spreadsheet.worksheets()])}")
+# ============= MODO ARCHIVO EXCEL =============
+else:
+    st.markdown("### 📤 Sube tu archivo Excel")
+    
+    uploaded_file = st.file_uploader(
+        "Selecciona tu archivo Excel (.xlsx o .xlsm)",
+        type=['xlsx', 'xlsm'],
+        help="Sube el archivo Excel que contiene la hoja 'BASE DE DATOS'"
+    )
+    
+    if uploaded_file is None:
+        st.info("⬆️ Sube tu archivo Excel para continuar")
         st.stop()
     
-    st.success(f"✅ **Conectado a:** {spreadsheet.title} (Hoja: {worksheet.title})")
-    
-    # Obtener último código
-    ultimo_codigo = obtener_ultimo_codigo(worksheet)
-    siguiente_codigo = ultimo_codigo + 1
-    
-except Exception as e:
-    st.error(f"❌ Error: {str(e)}")
-    st.info("Verifica que:\n- El ID sea correcto\n- Hayas compartido el sheet con: asistente@excel-485919.iam.gserviceaccount.com\n- La cuenta de servicio tenga permisos de Editor")
-    st.stop()
-
-# Inicializar session state para el código
-if 'codigo_actual' not in st.session_state:
-    st.session_state.codigo_actual = siguiente_codigo
+    # Cargar Excel en memoria
+    try:
+        if 'excel_workbook' not in st.session_state or st.session_state.get('uploaded_filename') != uploaded_file.name:
+            wb = load_workbook(uploaded_file, keep_vba=True)
+            st.session_state.excel_workbook = wb
+            st.session_state.uploaded_filename = uploaded_file.name
+            st.session_state.excel_bytes = uploaded_file.getvalue()
+        else:
+            wb = st.session_state.excel_workbook
+        
+        # Buscar hoja BASE DE DATOS
+        worksheet_excel = None
+        for sheet_name in wb.sheetnames:
+            if "BASE DE DATOS" in sheet_name.upper():
+                worksheet_excel = wb[sheet_name]
+                break
+        
+        if worksheet_excel is None:
+            st.error("❌ No se encontró ninguna hoja con nombre 'BASE DE DATOS'")
+            st.info(f"Hojas disponibles: {', '.join(wb.sheetnames)}")
+            st.stop()
+        
+        st.success(f"✅ **Archivo cargado:** {uploaded_file.name} (Hoja: {worksheet_excel.title})")
+        
+        # Obtener último código del Excel
+        ultimo_codigo_excel = 19222
+        for row in worksheet_excel.iter_rows(min_row=2, min_col=3, max_col=3):
+            valor = row[0].value
+            if valor and str(valor).isdigit():
+                ultimo_codigo_excel = max(ultimo_codigo_excel, int(valor))
+        
+        siguiente_codigo = ultimo_codigo_excel + 1
+        
+        if 'codigo_actual' not in st.session_state:
+            st.session_state.codigo_actual = siguiente_codigo
+        
+        usa_google_sheets = False
+        worksheet = worksheet_excel  # Para usar en el formulario
+        
+    except Exception as e:
+        st.error(f"❌ Error al cargar Excel: {str(e)}")
+        st.stop()
 
 # Formulario
 with st.form(key="formulario_arbol"):
@@ -346,8 +496,8 @@ with st.form(key="formulario_arbol"):
     
     # Botón enviar
     st.markdown("<br>", unsafe_allow_html=True)
-    submitted = st.form_submit_button("➕ Agregar Registro a Google Sheets", 
-                                      use_container_width=True, type="primary")
+    texto_boton = "➕ Agregar Registro a Google Sheets" if usa_google_sheets else "➕ Agregar Registro al Excel"
+    submitted = st.form_submit_button(texto_boton, use_container_width=True, type="primary")
     
     if submitted:
         # Preparar datos
@@ -373,25 +523,51 @@ with st.form(key="formulario_arbol"):
             'checks_concepto': {col: True for col, val in checks_concepto.items() if val}
         }
         
-        # Agregar a sheets
-        with st.spinner('Guardando en Google Sheets...'):
-            exito, resultado = agregarguardado exitosamente en la fila {resultado}** (ID: {codigo})")
+        # Guardar según el modo
+        if usa_google_sheets:
+            with st.spinner('Guardando en Google Sheets...'):
+                exito, resultado = agregar_fila_sheets(worksheet, datos)
+        else:
+            with st.spinner('Guardando en Excel...'):
+                exito, resultado = agregar_fila_excel(worksheet, datos)
+                if exito:
+                    # Guardar el workbook actualizado en session_state
+                    st.session_state.excel_workbook = wb
+        
+        if exito:
+            st.success(f"✅ **Registro guardado exitosamente en la fila {resultado}** (ID: {codigo})")
             st.balloons()
             
             # Auto-incrementar código para el siguiente
-            st.session_state.codigo_actual = int(codigo)
-            
-            # Auto-incrementar código
-            st.session_state.codigo_actual = codigo + 1
+            st.session_state.codigo_actual = int(codigo) + 1
             st.info(f"💡 El siguiente código sugerido es: **{st.session_state.codigo_actual}**")
             st.rerun()
         else:
             st.error(f"❌ Error al guardar: {resultado}")
 
+# Si es modo Excel, mostrar botón de descarga
+if not usa_google_sheets and 'excel_workbook' in st.session_state:
+    st.markdown("---")
+    st.markdown("### 💾 Descargar Excel Actualizado")
+    
+    # Guardar workbook en bytes
+    output = BytesIO()
+    st.session_state.excel_workbook.save(output)
+    excel_data = output.getvalue()
+    
+    st.download_button(
+        label="📥 Descargar Excel con cambios",
+        data=excel_data,
+        file_name=f"arboles_actualizado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+    st.info("💡 **Recuerda descargar el archivo** cuando termines de agregar todos los registros.")
+
 # Footer
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; font-size: 12px;">
-    🌳 Asistente de Registro de Árboles | Datos sincronizados en tiempo real con Google Sheets
+    🌳 Asistente de Registro de Árboles | Google Sheets o Excel
 </div>
 """, unsafe_allow_html=True)
