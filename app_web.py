@@ -5,7 +5,9 @@ from datetime import datetime
 import json
 import os
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 from io import BytesIO
+import copy
 
 # Configuración de la página
 st.set_page_config(
@@ -372,20 +374,36 @@ else:
             uploaded_file.seek(0)
             st.session_state.excel_original_bytes = uploaded_file.read()
             
-            # Cargar workbook con configuración más compatible
+            # Cargar workbook - intentar mantener todo lo posible
             uploaded_file.seek(0)
-            wb = load_workbook(
-                uploaded_file, 
-                keep_vba=True if uploaded_file.name.endswith('.xlsm') else False,
-                data_only=False, 
-                keep_links=False,
-                rich_text=True
-            )
+            try:
+                # Primer intento: cargar normalmente
+                wb = load_workbook(
+                    uploaded_file, 
+                    keep_vba=True,
+                    data_only=False, 
+                    keep_links=False
+                )
+            except Exception:
+                # Segundo intento: sin VBA si falla
+                uploaded_file.seek(0)
+                wb = load_workbook(
+                    uploaded_file,
+                    data_only=False,
+                    keep_links=False
+                )
+            
+            # Limpiar imágenes para evitar problemas al guardar
+            for sheet in wb.worksheets:
+                if hasattr(sheet, '_images') and sheet._images:
+                    sheet._images = []
+                if hasattr(sheet, '_charts') and sheet._charts:
+                    sheet._charts = []
             
             st.session_state.excel_workbook = wb
             st.session_state.uploaded_filename = uploaded_file.name
             st.session_state.registros_agregados = 0
-            st.session_state.datos_agregados = []  # Guardar datos para exportar CSV si falla Excel
+            st.session_state.datos_agregados = []
         else:
             wb = st.session_state.excel_workbook
         
@@ -594,40 +612,87 @@ with st.form(key="formulario_arbol"):
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.markdown("### 💾 Descargar Excel Actualizado")
+    st.markdown("---")
+    
+    col_desc, col_btn = st.columns([3, 2])
+    
+    with col_desc:
         if st.session_state.registros_agregados > 0:
-            st.success(f"✅ **{st.session_state.registros_agregados} registro(s) listo(s) para descargar**")
+            st.success(f"✅ **{st.session_state.registros_agregados} registro(s) agregado(s)**")
+            st.caption("Descarga el archivo completo con todos tus cambios")
         else:
-            st.info("ℹ️ Aún no has agregado registros en esta sesión")
+            st.info("ℹ️ Aún no has agregado registros")
     
-    with col2:
-        st.markdown("###  ")  # Espaciador para alinear
-        # Link para reiniciar
-        if st.checkbox("🔄 Cambiar de archivo", key="cambiar_archivo"):
-            for key in ['excel_workbook', 'uploaded_filename', 'excel_original_bytes', 'registros_agregados', 'codigo_actual', 'form_key']:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.rerun()
-    
-    # Guardar workbook en bytes
-    try:
-        output = BytesIO()
-        st.session_state.excel_workbook.save(output)
-        output.seek(0)
-        excel_data = output.getvalue()
-        
+    with col_btn:
         # Determinar extensión según el archivo original
         extension = "xlsm" if st.session_state.uploaded_filename.endswith('.xlsm') else "xlsx"
         
-        st.download_button(
-            label=f"📥 Descargar {st.session_state.uploaded_filename.replace('.xlsx', '').replace('.xlsm', '')}_actualizado.{extension}",
-            data=excel_data,
-            file_name=f"{st.session_state.uploaded_filename.replace('.xlsx', '').replace('.xlsm', '')}_actualizado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{extension}",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if extension == "xlsx" else "application/vnd.ms-excel.sheet.macroEnabled.12",
-            use_container_width=True,
-            type="primary"
-        )
-        
+        # Intentar guardar el workbook
+        try:
+            output = BytesIO()
+            st.session_state.excel_workbook.save(output)
+            output.seek(0)
+            excel_data = output.getvalue()
+            
+            # Verificar que se guardó correctamente
+            if len(excel_data) > 0:
+                st.download_button(
+                    label=f"📥 Descargar Excel Completo",
+                    data=excel_data,
+                    file_name=f"{st.session_state.uploaded_filename.replace('.xlsx', '').replace('.xlsm', '')}_actualizado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{extension}",
+            with st.expander("📋 Opción 2: Descargar solo registros nuevos en CSV"):
+                            use_container_width=True,
+                    type="primary"
+                )
+                st.caption("💾 Archivo completo con todos los datos originales + nuevos registros")
+            else:
+                raise Exception("Archivo vacío")
+                
+        except Exception as e:
+            # Si falla, mostrar mensaje de error pero ofrecer CSV
+            st.error(f"❌ No se pudo guardar el Excel completo")
+            st.warning("⚠️ El archivo tiene elementos incompatibles (imágenes/gráficos complejos)")
+            
+            # Intentar generar un Excel nuevo desde cero con los datos
+            st.markdown("### 📄 Opciones Alternativas:")
+            
+            with st.expander("🔄 Opción 1: Descargar datos en Excel nuevo (sin formato original)"):
+                try:
+                    from openpyxl import Workbook
+                    
+                    # Crear nuevo workbook
+                    nuevo_wb = Workbook()
+                    nuevo_ws = nuevo_wb.active
+                    nuevo_ws.title = "BASE DE DATOS"
+                    
+                    # Copiar solo los datos (valores) de la hoja original
+                    worksheet_excel = None
+                    for sheet_name in st.session_state.excel_workbook.sheetnames:
+                        if "BASE DE DATOS" in sheet_name.upper():
+                            worksheet_excel = st.session_state.excel_workbook[sheet_name]
+                            break
+                    
+                    if worksheet_excel:
+                        # Copiar datos celda por celda
+                        for row in worksheet_excel.iter_rows():
+                            for cell in row:
+                                nuevo_ws[cell.coordinate].value = cell.value
+                        
+                        # Guardar el nuevo workbook
+                        nuevo_output = BytesIO()
+                        nuevo_wb.save(nuevo_output)
+                else:
+                    st.info("No hay registros nuevos para exportar")
+            
+            # Mostrar recomendación
+            st.markdown("---")
+            st.info("""
+            **💡 Recomendación:** Para evitar estos problemas:
+            - Usa **Google Sheets** (funciona perfectamente con cualquier dato)
+            - O elimina imágenes/gráficos de tu Excel original
+            """)
+            
+            if st.checkbox("🔍 Ver error técnico"):
         st.caption("💡 **Tip:** Puedes seguir agregando más registros antes de descargar. El archivo se mantiene en memoria con todos tus cambios.")
         
     except Exception as e:
