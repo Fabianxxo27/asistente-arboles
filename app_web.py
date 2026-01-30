@@ -586,8 +586,9 @@ with st.form(key="formulario_arbol"):
             st.info("ℹ️ Aún no has agregado registros en esta sesión")
     
     with col2:
-        # Botón para reiniciar (subir otro archivo)
-        if st.button("🔄 Subir Otro Archivo", use_container_width=True):
+        st.markdown("###  ")  # Espaciador para alinear
+        # Link para reiniciar
+        if st.checkbox("🔄 Cambiar de archivo", key="cambiar_archivo"):
             for key in ['excel_workbook', 'uploaded_filename', 'excel_original_bytes', 'registros_agregados', 'codigo_actual', 'form_key']:
                 if key in st.session_state:
                     del st.session_state[key]
