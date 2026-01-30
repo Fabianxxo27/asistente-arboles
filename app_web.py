@@ -651,8 +651,10 @@ if submitted:
     if exito:
         # Auto-incrementar código para el siguiente
         st.session_state.codigo_actual = int(codigo) + 1
-        # Cambiar la key del formulario para forzar reset
-        st.session_state.form_key += 1
+        
+        # Solo resetear formulario en modo Google Sheets
+        if usa_google_sheets:
+            st.session_state.form_key += 1
         
         st.success(f"✅ **Registro guardado en fila {resultado}** (ID: {codigo})")
         
