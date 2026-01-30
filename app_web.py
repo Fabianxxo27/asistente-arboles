@@ -687,15 +687,7 @@ with st.form(key="formulario_arbol"):
         1. Usa **Google Sheets** (modo en la nube) - funciona sin problemas
         2. O simplifica tu Excel eliminando imágenes/formatos complejos
         """)
-        rror("""
-        ⚠️ **Error al generar archivo de descarga.**
         
-        Posibles causas:
-        - El archivo tiene formatos muy complejos
-        - Hay elementos incompatibles con la librería
-        
-        **Solución:** Usa el modo Google Sheets para una experiencia sin problemas.
-        """)
         if st.checkbox("🔍 Mostrar detalles técnicos"):
             st.code(str(e))
 
