@@ -376,21 +376,22 @@ else:
             uploaded_file.seek(0)
             st.session_state.excel_original_bytes = uploaded_file.read()
             
-            # Cargar workbook con configuración para preservar TODO
-            uploaded_file.seek(0)
+            # Cargar workbook desde bytes (no desde uploaded_file que puede cerrarse)
+            temp_file = BytesIO(st.session_state.excel_original_bytes)
+            
             try:
                 # Cargar manteniendo VBA, fórmulas, todo
                 wb = load_workbook(
-                    uploaded_file, 
+                    temp_file, 
                     keep_vba=True if uploaded_file.name.endswith('.xlsm') else False,
                     data_only=False,
                     keep_links=True
                 )
             except Exception:
                 # Si falla, intentar sin VBA
-                uploaded_file.seek(0)
+                temp_file = BytesIO(st.session_state.excel_original_bytes)
                 wb = load_workbook(
-                    uploaded_file,
+                    temp_file,
                     data_only=False,
                     keep_links=True
                 )
