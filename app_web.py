@@ -543,67 +543,70 @@ with st.form(key="formulario_arbol"):
     st.markdown("<br>", unsafe_allow_html=True)
     texto_boton = "➕ Agregar Registro a Google Sheets" if usa_google_sheets else "➕ Agregar Registro al Excel"
     submitted = st.form_submit_button(texto_boton, use_container_width=True, type="primary")
-    
-    if submitted:
-        # Preparar datos
-        datos = {
-            'entidad': entidad,
-            'nit': nit,
-            'codigo': str(codigo),
-            'checks_fuste': {col: True for col, val in checks_fuste.items() if val},
-            'fuste_general': fuste_general,
-            'raiz_especifico': raiz_especifico,
-            'raiz_general': raiz_general,
-            'checks_copa': {col: True for col, val in checks_copa.items() if val},
-            'san_copa_especifico': san_copa_especifico,
-            'checks_fuste_san': {col: True for col, val in checks_fuste_san.items() if val},
-            'san_general': san_general,
-            'san_copa_general': san_copa_general,
-            'san_fuste_general': san_fuste_general,
-            'san_raiz_general': san_raiz_general,
-            'checks_poda': {col: True for col, val in checks_poda.items() if val},
-            'tipo_poda': tipo_poda,
-            'intensidad': intensidad,
-            'residuos': residuos,
-            'checks_concepto': {col: True for col, val in checks_concepto.items() if val}
-        }
-        
-        # Guardar según el modo
-        if usa_google_sheets:
-            with st.spinner('Guardando en Google Sheets...'):
-                exito, resultado = agregar_fila_sheets(worksheet, datos)
-        else:
-            with st.spinner('Guardando en Excel...'):
-                exito, resultado = agregar_fila_excel(worksheet, datos)
-                if exito:
-                    # Incrementar contador de registros agregados
-                    st.session_state.registros_agregados += 1
-                    # Guardar datos para CSV alternativo
-                    if 'datos_agregados' not in st.session_state:
-                        st.session_state.datos_agregados = []
-                    st.session_state.datos_agregados.append({
-                        'fila': resultado,
-                        'id': codigo,
-                        'datos': datos
-                    })
-        
-        if exito:
-            # Auto-incrementar código para el siguiente
-            st.session_state.codigo_actual = int(codigo) + 1
-            # Cambiar la key del formulario para forzar reset
-            st.session_state.form_key += 1
-            
-            st.success(f"✅ **Registro guardado en fila {resultado}** (ID: {codigo})")
-            
-            # Mensaje especial para modo Excel
-            if not usa_google_sheets:
-                st.info(f"💾 **{st.session_state.registros_agregados} registro(s) en memoria.** Usa el botón 'Descargar Excel' cuando termines.")
-            
-            st.balloons()
-            st.rerun()
-        else:
-            st.error(f"❌ Error al guardar: {resultado}")
 
+# Procesar formulario FUERA del with st.form
+if submitted:
+    # Preparar datos
+    datos = {
+        'entidad': entidad,
+        'nit': nit,
+        'codigo': str(codigo),
+        'checks_fuste': {col: True for col, val in checks_fuste.items() if val},
+        'fuste_general': fuste_general,
+        'raiz_especifico': raiz_especifico,
+        'raiz_general': raiz_general,
+        'checks_copa': {col: True for col, val in checks_copa.items() if val},
+        'san_copa_especifico': san_copa_especifico,
+        'checks_fuste_san': {col: True for col, val in checks_fuste_san.items() if val},
+        'san_general': san_general,
+        'san_copa_general': san_copa_general,
+        'san_fuste_general': san_fuste_general,
+        'san_raiz_general': san_raiz_general,
+        'checks_poda': {col: True for col, val in checks_poda.items() if val},
+        'tipo_poda': tipo_poda,
+        'intensidad': intensidad,
+        'residuos': residuos,
+        'checks_concepto': {col: True for col, val in checks_concepto.items() if val}
+    }
+    
+    # Guardar según el modo
+    if usa_google_sheets:
+        with st.spinner('Guardando en Google Sheets...'):
+            exito, resultado = agregar_fila_sheets(worksheet, datos)
+    else:
+        with st.spinner('Guardando en Excel...'):
+            exito, resultado = agregar_fila_excel(worksheet, datos)
+            if exito:
+                # Incrementar contador de registros agregados
+                st.session_state.registros_agregados += 1
+                # Guardar datos para CSV alternativo
+                if 'datos_agregados' not in st.session_state:
+                    st.session_state.datos_agregados = []
+                st.session_state.datos_agregados.append({
+                    'fila': resultado,
+                    'id': codigo,
+                    'datos': datos
+                })
+    
+    if exito:
+        # Auto-incrementar código para el siguiente
+        st.session_state.codigo_actual = int(codigo) + 1
+        # Cambiar la key del formulario para forzar reset
+        st.session_state.form_key += 1
+        
+        st.success(f"✅ **Registro guardado en fila {resultado}** (ID: {codigo})")
+        
+        # Mensaje especial para modo Excel
+        if not usa_google_sheets:
+            st.info(f"💾 **{st.session_state.registros_agregados} registro(s) en memoria.** Usa el botón 'Descargar Excel' cuando termines.")
+        
+        st.balloons()
+        st.rerun()
+    else:
+        st.error(f"❌ Error al guardar: {resultado}")
+
+# Sección de descarga FUERA del formulario (solo para modo Excel)
+if not usa_google_sheets:
     # Guardar workbook en bytes
     st.markdown("---")
     
