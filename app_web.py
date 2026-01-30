@@ -746,9 +746,9 @@ with st.form(key="formulario_arbol"):
         
         if st.checkbox("🔍 Ver detalles técnicos"):
             st.code(f"Archivo: {st.session_state.uploaded_filename}\nError: Openpyxl no puede preservar imágenes/macros al guardar")
-
-except Exception as e:
-    st.error(f"Error fatal: {str(e)}")
+    
+    except Exception as e:
+        st.error(f"❌ Error al cargar o procesar el archivo Excel: {str(e)}")
 
 # Footer
 st.markdown("---")
