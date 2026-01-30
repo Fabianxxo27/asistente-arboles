@@ -735,8 +735,6 @@ with st.form(key="formulario_arbol"):
                     st.caption(f"📋 {st.session_state.registros_agregados} registro(s) para copiar a tu Excel original")
                 else:
                     st.info("No hay registros nuevos para exportar")
-                else:
-                    st.info("No hay registros nuevos para exportar")
             
             # Mostrar recomendación
             st.markdown("---")
