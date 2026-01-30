@@ -467,7 +467,7 @@ else:
         st.stop()
 
 # Formulario
-with st.form(key="formulario_arbol"):
+with st.form(key=f"formulario_arbol_{st.session_state.form_key}"):
     
     # Datos básicos
     col1, col2, col3 = st.columns(3)
