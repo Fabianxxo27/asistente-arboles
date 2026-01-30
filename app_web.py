@@ -469,7 +469,7 @@ with st.form(key="formulario_arbol"):
     opciones_fuste = [
         ("B", 4), ("Bb", 5), ("BB", 6), ("FR", 7), ("I", 8), ("MI", 9),
         ("To", 10), ("C", 11), ("Rv", 12), ("Ac", 13), ("An", 14), ("Dc", 15),
-        ("SB", 16), ("Ag", 17), ("Poe", 18), ("Pe", 19)
+        ("SB", 16), ("Ag", 17), ("Poe", 18), ("Pe", 19), ("DM-L", 20), ("DM-M", 21), ("DM-G", 22)
     ]
     for idx, (nombre, col) in enumerate(opciones_fuste):
         with cols_fuste[idx % 6]:
