@@ -528,7 +528,7 @@ with st.form(key="formulario_arbol"):
             checks_fuste_san[col] = st.checkbox(nombre, key=f"fuste_san_{col}")
     
     # Estado Sanitario Raíz Específico (columna 48)
-    san_raiz_especifico = st.text_input("Estado Sanitario Raíz Específico:")
+    san_raiz_especifico = st.text_input("Estado Sanitario Raíz Específico:", value="Ninguna de las anteriores")
     
     # Estados sanitarios generales (columnas 49-52)
     col1, col2, col3, col4 = st.columns(4)
